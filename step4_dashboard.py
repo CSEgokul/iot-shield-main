@@ -8,9 +8,12 @@ import json
 import time
 from textwrap import dedent
 import pandas as pd
+# pyrefly: ignore [missing-import]
 import plotly.graph_objects as go
+# pyrefly: ignore [missing-import]
 import streamlit as st
 from datetime import datetime, timezone
+# pyrefly: ignore [missing-import]
 from streamlit_autorefresh import st_autorefresh
 
 # Firebase synchronization & AI assistant integration

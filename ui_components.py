@@ -5,6 +5,7 @@ Faithfully matches the approved IoT Shield mockup and provides a native mobile-f
 
 from textwrap import dedent
 from datetime import datetime
+# pyrefly: ignore [missing-import]
 import streamlit as st
 
 

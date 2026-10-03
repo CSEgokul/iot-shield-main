@@ -35,7 +35,9 @@ import time
 import requests
 
 try:
+    # pyrefly: ignore [missing-import]
     import firebase_admin
+    # pyrefly: ignore [missing-import]
     from firebase_admin import credentials, db
 except ImportError:
     firebase_admin = None  # type: ignore
@@ -49,6 +51,7 @@ def get_database_url():
     environment variables, or the default configured URL."""
     # 1. Try Streamlit secrets if running inside Streamlit
     try:
+        # pyrefly: ignore [missing-import]
         import streamlit as st
         if hasattr(st, "secrets") and "FIREBASE_DB_URL" in st.secrets:
             val = str(st.secrets["FIREBASE_DB_URL"]).strip().rstrip("/")
@@ -121,6 +124,7 @@ def _get_cert_credentials():
 
     # 1. Check Streamlit secrets (dict or json string or path)
     try:
+        # pyrefly: ignore [missing-import]
         import streamlit as st
         if hasattr(st, "secrets"):
             if "firebase_key" in st.secrets:

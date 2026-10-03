@@ -10,6 +10,7 @@ import requests
 def _get_secret(key):
     """Retrieve key from Streamlit secrets or environment variables."""
     try:
+        # pyrefly: ignore [missing-import]
         import streamlit as st
         if hasattr(st, "secrets") and key in st.secrets:
             val = str(st.secrets[key]).strip()

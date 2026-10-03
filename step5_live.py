@@ -10,7 +10,9 @@ import sys
 import json
 import time
 import threading
+# pyrefly: ignore [missing-import]
 import joblib
+# pyrefly: ignore [missing-import]
 import numpy as np
 import pandas as pd
 from datetime import datetime, timezone
@@ -100,6 +102,8 @@ MAX_ALERTS = 200
 _pkt_count = 0
 
 
+def _stats_flusher():
+    """Periodically flush stats, sync to Firebase, and print status."""
     while True:
         time.sleep(5)
         _write_stats()
