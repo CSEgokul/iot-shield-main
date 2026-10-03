@@ -355,6 +355,46 @@ CLASS_COLORS = {
 SEV_COLORS = {"critical":"#f85149","high":"#d29922","none":"#3fb950"}
 
 # ─────────────────────────────────────────────
+# Detector liveness & telemetry status
+# ─────────────────────────────────────────────
+current_total = stats.get("total", 0)
+prev_total = st.session_state.get("prev_total", None)
+latest_alert_ts = ""
+is_recent_alert = False
+
+if alerts:
+    latest_alert_ts = str(alerts[-1].get("timestamp", ""))[:19].replace("T", " ")
+    try:
+        raw_ts = str(alerts[-1].get("timestamp", ""))[:19]
+        alert_dt = datetime.fromisoformat(raw_ts)
+        diff_local = abs((datetime.now() - alert_dt).total_seconds())
+        diff_utc = abs((datetime.utcnow() - alert_dt).total_seconds())
+        if min(diff_local, diff_utc) < 180:  # Data received within last 3 minutes
+            is_recent_alert = True
+    except Exception:
+        pass
+
+if prev_total is not None and current_total != prev_total:
+    st.session_state.last_seen_active = time.time()
+    st.session_state.prev_total = current_total
+elif prev_total is None:
+    st.session_state.prev_total = current_total
+
+last_active_time = st.session_state.get("last_seen_active", 0)
+is_detector_live = is_recent_alert or (last_active_time > 0 and (time.time() - last_active_time < 120))
+
+if is_detector_live:
+    detector_status_text = "LIVE — Detector connected"
+    detector_status_color = "#3fb950"
+    detector_dot = "●"
+    detector_subtext = "Receiving real-time telemetry from local sensor"
+else:
+    detector_status_text = "OFFLINE — Waiting for local detector"
+    detector_status_color = "#d29922"
+    detector_dot = "○"
+    detector_subtext = "Start local detector (start_detector.bat) to stream"
+
+# ─────────────────────────────────────────────
 # SIDEBAR
 # ─────────────────────────────────────────────
 with st.sidebar:
@@ -362,17 +402,33 @@ with st.sidebar:
     st.markdown('<div class="dash-sub">Threat Detection System</div>', unsafe_allow_html=True)
     st.markdown("---")
 
-    # Simulation controls
-    st.markdown('<div class="sidebar-section">SIMULATION</div>', unsafe_allow_html=True)
-    col_s1, col_s2 = st.columns(2)
-    with col_s1:
-        if st.button("▶ Start"):
-            clear_data()
-            st.session_state.running = True
-            st.success("Run step5_simulate.py")
-    with col_s2:
-        if st.button("⏹ Stop"):
-            st.session_state.running = False
+    # Live Monitoring Status
+    st.markdown('<div class="sidebar-section">LIVE MONITORING</div>', unsafe_allow_html=True)
+
+    status_bg = "#16281c" if is_detector_live else "#271e16"
+    st.markdown(f"""
+    <div style="background:{status_bg};border:1px solid {detector_status_color};border-radius:6px;padding:0.6rem 0.8rem;margin-bottom:0.8rem;">
+        <div style="font-size:0.75rem;font-weight:600;color:{detector_status_color};display:flex;align-items:center;gap:0.4rem;">
+            <span>{detector_dot}</span> {detector_status_text}
+        </div>
+        <div style="font-size:0.7rem;color:#8b949e;margin-top:0.25rem;line-height:1.4;">
+            {detector_subtext}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Live telemetry summary
+    fb_label = "Connected (RTDB)" if DATA_SOURCE.startswith("Firebase") else "Local file fallback"
+    fb_color = "#3fb950" if DATA_SOURCE.startswith("Firebase") else "#d29922"
+    last_update_display = latest_alert_ts[11:19] if latest_alert_ts else "No events yet"
+
+    st.markdown(f"""
+    <div style="font-size:0.75rem;line-height:2.0;color:#e6edf3;font-family:'JetBrains Mono',monospace;margin-bottom:0.8rem;">
+        <span style="color:#8b949e;">Firebase:</span> <span style="color:{fb_color};">● {fb_label}</span><br>
+        <span style="color:#8b949e;">Telemetry:</span> {last_update_display}<br>
+        <span style="color:#8b949e;">Flows:</span> {stats.get('total', 0):,} analyzed
+    </div>
+    """, unsafe_allow_html=True)
 
     if st.button("↺ Reset dashboard"):
         clear_data()
@@ -403,10 +459,14 @@ with st.sidebar:
     st.session_state.filter_classes = selected if selected else ["benign","ddos","malware","portscan"]
 
     st.markdown("---")
-    st.markdown('<div class="sidebar-section">DATA SOURCE</div>', unsafe_allow_html=True)
-    _src_color = "#3fb950" if DATA_SOURCE.startswith("Firebase") else "#d29922"
-    st.markdown(f'<div style="font-size:0.75rem;color:{_src_color};font-family:JetBrains Mono,monospace;">● {DATA_SOURCE}</div>', unsafe_allow_html=True)
-    st.markdown(f'<div style="font-size:0.7rem;color:#8b949e;margin-top:0.5rem;">Last refresh<br>{datetime.now().strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-section">SYSTEM STATUS</div>', unsafe_allow_html=True)
+    refresh_status = "Active (3s)" if st.session_state.auto_refresh else "Paused"
+    st.markdown(f"""
+    <div style="font-size:0.75rem;line-height:1.8;color:#8b949e;font-family:'JetBrains Mono',monospace;">
+        Auto-refresh: <span style="color:#e6edf3;">{refresh_status}</span><br>
+        Dashboard clock: <span style="color:#e6edf3;">{datetime.now().strftime("%H:%M:%S")}</span>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
 # HEADER
