@@ -7,10 +7,9 @@ import os
 import json
 import time
 import pandas as pd
-import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
-from datetime import datetime
+from datetime import datetime, timezone
 from streamlit_autorefresh import st_autorefresh
 
 # Firebase synchronization & AI assistant integration
@@ -97,7 +96,6 @@ else:
 total_flows = stats.get("total", 0)
 threats_count = stats.get("threats", 0)
 benign_count = stats.get("benign", 0)
-critical_count = stats.get("critical", 0)
 
 latest_alert_ts = ""
 is_recent_alert = False
@@ -107,8 +105,10 @@ if alerts:
     try:
         raw_ts = str(alerts[-1].get("timestamp", ""))[:19]
         alert_dt = datetime.fromisoformat(raw_ts)
-        diff_local = abs((datetime.now() - alert_dt).total_seconds())
-        diff_utc = abs((datetime.utcnow() - alert_dt).total_seconds())
+        now_dt = datetime.now()
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        diff_local = abs((now_dt - alert_dt).total_seconds())
+        diff_utc = abs((now_utc - alert_dt).total_seconds())
         if min(diff_local, diff_utc) < 180:  # Fresh data within 3 minutes
             is_recent_alert = True
     except Exception:
@@ -189,7 +189,8 @@ with tab_overview:
         df_time = pd.DataFrame(alerts)
         df_time["time"] = pd.to_datetime(df_time["timestamp"])
         df_time["bucket"] = df_time["time"].dt.floor("5s")
-        timeline = df_time.groupby(["bucket", "label"]).size().reset_index(name="count")
+        timeline = df_time.groupby(["bucket", "label"]).size().reset_index()
+        timeline.columns = ["bucket", "label", "count"]
 
         fig_time = go.Figure()
         for cls_name, cls_color in CLASS_COLORS.items():

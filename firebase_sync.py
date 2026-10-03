@@ -34,6 +34,14 @@ import json
 import time
 import requests
 
+try:
+    import firebase_admin
+    from firebase_admin import credentials, db
+except ImportError:
+    firebase_admin = None  # type: ignore
+    credentials = None     # type: ignore
+    db = None              # type: ignore
+
 # ── Dynamic Config Helpers ──────────────────────────────────────────────────
 
 def get_database_url():
@@ -92,9 +100,10 @@ def _clean_for_firebase(obj):
         return {str(k): _clean_for_firebase(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
         return [_clean_for_firebase(v) for v in obj]
-    if hasattr(obj, "item") and callable(getattr(obj, "item")):
+    item_fn = getattr(obj, "item", None)
+    if callable(item_fn):
         try:
-            return obj.item()
+            return item_fn()
         except Exception:
             pass
     return obj
@@ -104,9 +113,7 @@ def _get_cert_credentials():
     """Safely obtain credentials for firebase-admin from file, environment,
     or Streamlit secrets without exposing secret keys in logs.
     Returns credentials object or None."""
-    try:
-        from firebase_admin import credentials
-    except ImportError:
+    if credentials is None:
         # firebase-admin not installed (e.g. on Streamlit Cloud)
         return None
 
@@ -188,10 +195,14 @@ def _ensure_admin():
         print("[firebase] Service-account key not found — sync disabled (local files only).")
         return False
 
+    if firebase_admin is None or db is None:
+        print("[firebase] firebase_admin package not available — sync disabled.")
+        return False
+
     try:
-        import firebase_admin
-        from firebase_admin import db
-        if not firebase_admin._apps:
+        try:
+            firebase_admin.get_app()
+        except ValueError:
             firebase_admin.initialize_app(cred, {"databaseURL": db_url})
         _db = db
         _init_ok = True
@@ -208,7 +219,7 @@ def push(alerts, stats, force=False):
     Throttled to at most once per _MIN_PUSH_INTERVAL seconds unless force=True
     (use force=True on shutdown / final flush so nothing is lost)."""
     global _last_push
-    if not _ensure_admin():
+    if not _ensure_admin() or _db is None:
         return False
     now = time.time()
     if not force and (now - _last_push) < _MIN_PUSH_INTERVAL:
