@@ -79,6 +79,8 @@ _CRED_PATH = os.environ.get(
 
 ALERTS_NODE = "live_alerts"
 STATS_NODE = "live_stats"
+STATUS_NODE = "system_status"
+DEVICES_NODE = "devices"
 _MIN_PUSH_INTERVAL = 2.0  # seconds — throttle writes to protect the free tier
 
 # ── Internal write-side state ─────────────────────────────────────────────────
@@ -236,23 +238,51 @@ def push(alerts, stats, force=False):
         return False
 
 
-def fetch(timeout=4):
-    """READ side. One HTTPS GET of the whole DB, then pull out the two nodes.
-    No SDK / key needed. Returns (alerts_list, stats_dict), or (None, None) if
-    Firebase is not configured or unreachable so the caller can fall back to
-    the local JSON files."""
+def push_heartbeat(status_dict):
+    """WRITE side. Sends a detector heartbeat record to system_status/detector."""
+    if not _ensure_admin() or _db is None:
+        return False
+    try:
+        clean_status = _clean_for_firebase(status_dict)
+        _db.reference(f"{STATUS_NODE}/detector").set(clean_status)
+        return True
+    except Exception as e:
+        print(f"[firebase] Heartbeat push failed: {type(e).__name__}")
+        return False
+
+
+def push_devices(devices_dict):
+    """WRITE side. Updates monitored devices record under devices/."""
+    if not _ensure_admin() or _db is None:
+        return False
+    try:
+        clean_devices = _clean_for_firebase(devices_dict)
+        _db.reference(DEVICES_NODE).update(clean_devices)
+        return True
+    except Exception as e:
+        print(f"[firebase] Devices push failed: {type(e).__name__}")
+        return False
+
+
+def fetch(timeout=4, include_meta=False):
+    """READ side. One HTTPS GET of the whole DB.
+    No SDK / key needed. Returns (alerts_list, stats_dict) by default,
+    or (alerts_list, stats_dict, system_status_dict, devices_dict) if include_meta=True.
+    Returns (None, None) / (None, None, None, None) on failure."""
     db_url = get_database_url()
     if not _url_ok(db_url):
-        return None, None
+        return (None, None, None, None) if include_meta else (None, None)
     try:
         r = requests.get(f"{db_url}/.json", timeout=timeout)
         r.raise_for_status()
         data = r.json()
         if not isinstance(data, dict):
-            return None, None
+            return (None, None, None, None) if include_meta else (None, None)
 
         alerts = data.get(ALERTS_NODE)
         stats = data.get(STATS_NODE)
+        system_status = data.get(STATUS_NODE, {})
+        devices = data.get(DEVICES_NODE, {})
 
         # Format alerts as list safely regardless of key format
         if isinstance(alerts, dict):
@@ -266,6 +296,15 @@ def fetch(timeout=4):
         if not isinstance(stats, dict):
             stats = {"total": 0, "threats": 0, "critical": 0, "benign": 0}
 
+        if not isinstance(system_status, dict):
+            system_status = {}
+
+        if not isinstance(devices, dict):
+            devices = {}
+
+        if include_meta:
+            return alerts, stats, system_status, devices
         return alerts, stats
     except Exception:
-        return None, None
+        return (None, None, None, None) if include_meta else (None, None)
+

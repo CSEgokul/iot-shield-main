@@ -17,7 +17,7 @@ import numpy as np
 import warnings
 warnings.filterwarnings("ignore")
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone
 
 if hasattr(sys.stdout, "reconfigure"):
     try:
@@ -38,6 +38,8 @@ MODEL_DIR   = os.path.join(BASE_DIR, "models")
 DATA_DIR    = os.path.join(BASE_DIR, "data")
 ALERTS_FILE = os.path.join(DATA_DIR, "live_alerts.json")
 STATS_FILE  = os.path.join(DATA_DIR, "live_stats.json")
+STATUS_FILE = os.path.join(DATA_DIR, "system_status.json")
+DEVICES_FILE= os.path.join(DATA_DIR, "devices.json")
 DATASET     = os.path.join(DATA_DIR, "combined.csv")
 
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -147,12 +149,81 @@ stats = {
 alerts = []
 MAX_ALERTS = 200
 
-def write_files(force=False):
+_start_time = datetime.now(timezone.utc).isoformat()
+_last_packet_time = None
+_observed_devices = {}
+
+def _build_heartbeat(status="online"):
+    now_utc = datetime.now(timezone.utc).isoformat()
+    return {
+        "status": status,
+        "mode": "simulation",
+        "last_seen": now_utc,
+        "started_at": _start_time,
+        "hostname": "IOT-SIMULATOR",
+        "interface": "Simulation Loop",
+        "model_ready": True,
+        "capture_active": status == "online",
+        "firebase_write_ok": firebase_sync.is_configured(),
+        "last_packet_at": _last_packet_time,
+        "packets_seen": stats["total"],
+        "flows_analyzed": stats["total"],
+        "threats_detected": stats["threats"],
+    }
+
+def _sync_system_status(status="online"):
+    hb = _build_heartbeat(status=status)
+    try:
+        with open(STATUS_FILE, "w") as f:
+            json.dump({"detector": hb}, f, indent=2)
+    except Exception:
+        pass
+    if firebase_sync.is_configured():
+        firebase_sync.push_heartbeat(hb)
+
+def _track_device(src_ip, proto, is_threat=False):
+    now_iso = datetime.now(timezone.utc).isoformat()
+    if src_ip not in _observed_devices:
+        _observed_devices[src_ip] = {
+            "ip": src_ip,
+            "mac": "Simulated Device",
+            "first_seen": now_iso,
+            "last_seen": now_iso,
+            "flows": 1,
+            "threats": 1 if is_threat else 0,
+            "last_proto": str(proto).upper(),
+        }
+    else:
+        dev = _observed_devices[src_ip]
+        dev["last_seen"] = now_iso
+        dev["flows"] += 1
+        dev["last_proto"] = str(proto).upper()
+        if is_threat:
+            dev["threats"] += 1
+
+def _sync_devices():
+    if not _observed_devices:
+        return
+    try:
+        with open(DEVICES_FILE, "w") as f:
+            json.dump(_observed_devices, f, indent=2)
+    except Exception:
+        pass
+    if firebase_sync.is_configured():
+        sanitized = {}
+        for ip, dev in _observed_devices.items():
+            safe_key = "dev_" + ip.replace(".", "_").replace(":", "_")
+            sanitized[safe_key] = dev
+        firebase_sync.push_devices(sanitized)
+
+def write_files(force=False, status="online"):
     with open(ALERTS_FILE, "w") as f:
         json.dump(alerts[-MAX_ALERTS:], f, indent=2)
     with open(STATS_FILE, "w") as f:
         json.dump(stats, f, indent=2)
     firebase_sync.push(alerts[-MAX_ALERTS:], stats, force=force)
+    _sync_system_status(status=status)
+    _sync_devices()
 
 # ─────────────────────────────────────────────
 # Init
@@ -162,7 +233,7 @@ if args.reset or not os.path.exists(ALERTS_FILE):
         json.dump([], f)
     print("[*] Alert feed cleared.")
 
-write_files()
+write_files(status="online")
 
 if firebase_sync.is_configured():
     print("[*] Firebase : bridge enabled — cloud dashboard will receive this data")
@@ -204,8 +275,10 @@ try:
         # Pick realistic IPs based on label
         src_ip = random.choice(IOT_DEVICES)
         dst_ip = random.choice(EXTERNAL_IPS) if pred_label != "benign" else random.choice(IOT_DEVICES)
-        src_port = int(row.get("id.orig_p", random.randint(1024, 65535)))
-        dst_port = int(row.get("id.resp_p", 443))
+        orig_p_val = row.get("id.orig_p")
+        src_port = int(orig_p_val) if orig_p_val is not None else random.randint(1024, 65535)
+        resp_p_val = row.get("id.resp_p")
+        dst_port = int(resp_p_val) if resp_p_val is not None else 443
         proto    = str(row.get("proto", "tcp"))
 
         # Update stats
@@ -229,13 +302,15 @@ try:
             "true_label":  true_label,
             "severity":    severity,
             "confidence":  round(confidence * 100, 1),
-            "orig_pkts":   int(row.get("orig_pkts", 0)),
-            "resp_pkts":   int(row.get("resp_pkts", 0)),
-            "orig_bytes":  int(row.get("orig_ip_bytes", 0)),
-            "resp_bytes":  int(row.get("resp_ip_bytes", 0)),
+            "orig_pkts":   int(row.get("orig_pkts") or 0),
+            "resp_pkts":   int(row.get("resp_pkts") or 0),
+            "orig_bytes":  int(row.get("orig_ip_bytes") or 0),
+            "resp_bytes":  int(row.get("resp_ip_bytes") or 0),
         }
+        _last_packet_time = ts_str
+        _track_device(src_ip, proto, is_threat=(pred_label != "benign"))
         alerts.append(alert)
-        write_files()
+        write_files(status="online")
 
         # Console output
         correct = "✓" if pred_label == true_label else "✗"
@@ -247,10 +322,10 @@ try:
 
         time.sleep(DELAY)
 
-    write_files(force=True)
+    write_files(force=True, status="offline")
     print(f"\n[*] Simulation complete. {stats['total']} flows replayed.")
     print(f"[*] Threats: {stats['threats']}  |  Benign: {stats['benign']}")
 
 except KeyboardInterrupt:
     print(f"\n[*] Stopped. Replayed {stats['total']} flows.")
-    write_files(force=True)
+    write_files(force=True, status="offline")

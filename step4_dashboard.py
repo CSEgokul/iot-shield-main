@@ -19,7 +19,7 @@ import ai_assistant
 from ui_components import (
     PALETTE, CLASS_COLORS, CLASS_LABELS,
     inject_global_styles, format_relative_time,
-    render_sidebar_header, render_sidebar_status,
+    render_sidebar_header, render_sidebar_status, render_status_banner,
     render_kpi_card, render_section_header, render_empty_state
 )
 
@@ -30,6 +30,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR    = os.path.join(BASE_DIR, "data")
 ALERTS_FILE = os.path.join(DATA_DIR, "live_alerts.json")
 STATS_FILE  = os.path.join(DATA_DIR, "live_stats.json")
+STATUS_FILE = os.path.join(DATA_DIR, "system_status.json")
+DEVICES_FILE= os.path.join(DATA_DIR, "devices.json")
 os.makedirs(DATA_DIR, exist_ok=True)
 
 # ─────────────────────────────────────────────────────────────
@@ -37,8 +39,9 @@ os.makedirs(DATA_DIR, exist_ok=True)
 # ─────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="IoT Shield",
+    page_icon="🛡",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # Inject approved light SaaS styling with responsive mobile rules
@@ -83,49 +86,115 @@ def clear_dashboard_data():
         json.dump({"total": 0, "threats": 0, "critical": 0, "benign": 0}, f)
 
 # Prioritize Firebase Realtime Database live sync; fall back to local files
-fb_alerts, fb_stats = firebase_sync.fetch()
+fb_alerts, fb_stats, fb_status, fb_devices = firebase_sync.fetch(include_meta=True)
 if fb_alerts is not None:
     alerts = fb_alerts
     stats  = fb_stats or {"total": 0, "threats": 0, "critical": 0, "benign": 0}
     DATA_SOURCE = "Firebase"
+    fb_connected = True
 else:
     alerts = load_local_alerts()
     stats  = load_local_stats()
     DATA_SOURCE = "Local cache"
+    fb_connected = False
+    try:
+        with open(STATUS_FILE, "r") as f:
+            fb_status = json.load(f)
+    except Exception:
+        fb_status = {}
+    try:
+        with open(DEVICES_FILE, "r") as f:
+            fb_devices = json.load(f)
+    except Exception:
+        fb_devices = {}
 
 # ─────────────────────────────────────────────────────────────
-# Detector Liveness & Freshness Detection
+# Detector Liveness & Heartbeat Evaluation
 # ─────────────────────────────────────────────────────────────
 total_flows = stats.get("total", 0)
 threats_count = stats.get("threats", 0)
 benign_count = stats.get("benign", 0)
 
-latest_alert_ts = ""
-is_recent_alert = False
+det_meta = fb_status.get("detector", {}) if isinstance(fb_status, dict) else {}
+last_seen_raw = det_meta.get("last_seen")
+status_field = det_meta.get("status", "unknown")
+mode_field = det_meta.get("mode", "live")
+capture_active = bool(det_meta.get("capture_active", False))
+last_packet_raw = det_meta.get("last_packet_at")
+model_ready = bool(det_meta.get("model_ready", True))
+interface_name = det_meta.get("interface", "Wi-Fi")
+sensor_id = det_meta.get("hostname", "IOT-SENSOR-01")
 
+detector_online = False
+detector_stale = False
+last_seen_age = None
+
+latest_alert_ts = ""
 if alerts:
     latest_alert_ts = str(alerts[-1].get("timestamp", ""))[:19].replace("T", " ")
+
+if last_seen_raw:
     try:
-        raw_ts = str(alerts[-1].get("timestamp", ""))[:19]
-        alert_dt = datetime.fromisoformat(raw_ts)
-        now_dt = datetime.now()
-        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
-        diff_local = abs((now_dt - alert_dt).total_seconds())
-        diff_utc = abs((now_utc - alert_dt).total_seconds())
-        if min(diff_local, diff_utc) < 180:  # Fresh data within 3 minutes
-            is_recent_alert = True
+        clean_iso = str(last_seen_raw).replace("Z", "+00:00")
+        dt_seen = datetime.fromisoformat(clean_iso)
+        if dt_seen.tzinfo is None:
+            dt_seen = dt_seen.replace(tzinfo=timezone.utc)
+        now_utc = datetime.now(timezone.utc)
+        last_seen_age = max(0, (now_utc - dt_seen).total_seconds())
+
+        if status_field == "offline":
+            detector_online = False
+        elif last_seen_age <= 15:
+            detector_online = True
+        elif last_seen_age <= 45:
+            detector_stale = True
+            detector_online = False
+        else:
+            detector_online = False
+    except Exception:
+        detector_online = False
+elif latest_alert_ts:
+    try:
+        alert_dt = datetime.fromisoformat(latest_alert_ts)
+        diff_local = abs((datetime.now() - alert_dt).total_seconds())
+        if diff_local < 45:
+            detector_online = True
+            last_seen_age = diff_local
     except Exception:
         pass
 
-prev_total = st.session_state.get("prev_total", None)
-if prev_total is not None and total_flows != prev_total:
-    st.session_state.last_seen_active = time.time()
-    st.session_state.prev_total = total_flows
-elif prev_total is None:
-    st.session_state.prev_total = total_flows
+# Mode string determination
+if detector_online:
+    active_mode = "live" if mode_field == "live" else "simulation"
+elif detector_stale:
+    active_mode = "delayed"
+else:
+    active_mode = "offline"
 
-last_active_time = st.session_state.get("last_seen_active", 0)
-is_detector_live = is_recent_alert or (last_active_time > 0 and (time.time() - last_active_time < 120))
+# Last packet activity age
+if last_packet_raw:
+    try:
+        clean_pkt_iso = str(last_packet_raw).replace("Z", "+00:00")
+        dt_pkt = datetime.fromisoformat(clean_pkt_iso)
+        if dt_pkt.tzinfo is None:
+            dt_pkt = dt_pkt.replace(tzinfo=timezone.utc)
+        pkt_age = max(0, (datetime.now(timezone.utc) - dt_pkt).total_seconds())
+        if pkt_age < 10:
+            last_packet_ago = "Just now"
+        elif pkt_age < 60:
+            last_packet_ago = f"{int(pkt_age)}s ago"
+        elif pkt_age < 3600:
+            last_packet_ago = f"{int(pkt_age // 60)}m ago"
+        else:
+            last_packet_ago = f"{int(pkt_age // 3600)}h ago"
+    except Exception:
+        last_packet_ago = format_relative_time(latest_alert_ts)
+elif latest_alert_ts:
+    last_packet_ago = format_relative_time(latest_alert_ts)
+else:
+    last_packet_ago = "No packets yet"
+
+engine_status = "Ready" if model_ready else "Unavailable"
 
 # ─────────────────────────────────────────────────────────────
 # SIDEBAR (Faithfully Matches Mockup)
@@ -157,10 +226,25 @@ with st.sidebar:
 
     # Real status card and user profile at the bottom of the sidebar
     render_sidebar_status(
-        is_detector_live=is_detector_live,
+        is_detector_live=detector_online,
         data_source=DATA_SOURCE,
-        last_ts=latest_alert_ts
+        last_ts=latest_alert_ts or str(last_seen_raw or ""),
+        mode=active_mode,
+        interface=interface_name,
+        model_name=f"RF + XGBoost ({engine_status})"
     )
+
+# ─────────────────────────────────────────────────────────────
+# REAL-TIME SYSTEM STATUS BANNER (Desktop & Mobile)
+# ─────────────────────────────────────────────────────────────
+render_status_banner(
+    detector_online=detector_online,
+    mode_str=active_mode,
+    fb_connected=fb_connected,
+    capture_active=capture_active if detector_online else False,
+    last_packet_ago=last_packet_ago,
+    sensor_id=sensor_id
+)
 
 # ─────────────────────────────────────────────────────────────
 # TOP HEADER ROW (Matches Mockup)
@@ -530,15 +614,14 @@ if selected_nav == "Overview":
     with br_col2:
         st.html(f"""
         <div class="saas-card" style="margin-bottom:0.5rem;">
-            {render_section_header("System Status", "Infrastructure & synchronizer health")}
+            {render_section_header("System Status", "Real-time detector and sync health")}
         </div>
         """)
 
-        det_dot = PALETTE["success_green"] if is_detector_live else PALETTE["warning_amber"]
-        det_text = "Online" if is_detector_live else "Offline"
-        fb_dot = PALETTE["success_green"] if DATA_SOURCE.startswith("Firebase") else PALETTE["warning_amber"]
-        fb_text = "Connected" if DATA_SOURCE.startswith("Firebase") else "Local cache"
-        time_display = format_relative_time(latest_alert_ts)
+        det_dot = PALETTE["success_green"] if detector_online else (PALETTE["warning_amber"] if detector_stale else "#98A2B3")
+        det_text = "Online" if detector_online else ("Stale" if detector_stale else "Offline")
+        fb_dot = PALETTE["success_green"] if fb_connected else PALETTE["warning_amber"]
+        fb_text = "Connected" if fb_connected else "Local cache"
 
         system_status_mockup_html = dedent(f"""
         <div class="saas-card" style="font-size:0.875rem;line-height:2.3;">
@@ -553,6 +636,14 @@ if selected_nav == "Overview":
             </div>
             <div class="status-row">
                 <span style="display:flex;align-items:center;gap:0.5rem;color:#475467;">
+                    <span>🔄</span> Mode
+                </span>
+                <span class="status-row-val" style="color:#D92D20;font-weight:600;">
+                    {active_mode.capitalize()}
+                </span>
+            </div>
+            <div class="status-row">
+                <span style="display:flex;align-items:center;gap:0.5rem;color:#475467;">
                     <span>☁️</span> Firebase
                 </span>
                 <span class="status-row-val" style="color:{fb_dot};font-weight:600;">
@@ -562,27 +653,27 @@ if selected_nav == "Overview":
             </div>
             <div class="status-row">
                 <span style="display:flex;align-items:center;gap:0.5rem;color:#475467;">
-                    <span>🕒</span> Last telemetry
+                    <span>🕒</span> Last activity
                 </span>
-                <span class="status-row-val" style="color:#101828;">{time_display}</span>
+                <span class="status-row-val" style="color:#101828;">{last_packet_ago}</span>
             </div>
             <div class="status-row">
                 <span style="display:flex;align-items:center;gap:0.5rem;color:#475467;">
                     <span>⚙️</span> Detection model
                 </span>
-                <span class="status-row-val" style="color:#101828;font-weight:600;">RF + XGBoost</span>
+                <span class="status-row-val" style="color:#101828;font-weight:600;">RF + XGBoost ({engine_status})</span>
             </div>
             <div class="status-row">
                 <span style="display:flex;align-items:center;gap:0.5rem;color:#475467;">
-                    <span>📶</span> Network interface
+                    <span>📶</span> Interface
                 </span>
-                <span class="status-row-val" style="color:#101828;font-weight:600;">Wi-Fi</span>
+                <span class="status-row-val" style="color:#101828;font-weight:600;">{interface_name}</span>
             </div>
             <div class="status-row">
                 <span style="display:flex;align-items:center;gap:0.5rem;color:#475467;">
-                    <span>🔄</span> Sync latency
+                    <span>🏷</span> Sensor ID
                 </span>
-                <span class="status-row-val" style="color:#101828;font-family:'JetBrains Mono',monospace;">&lt; 1.2s</span>
+                <span class="status-row-val" style="color:#475467;font-family:'JetBrains Mono',monospace;">{sensor_id}</span>
             </div>
         </div>
         """).strip()
@@ -916,9 +1007,194 @@ elif selected_nav == "AI Assistant":
             )
 
 # ═════════════════════════════════════════════════════════════
-# OTHER MOCKUP NAV PAGES (Devices, Reports, Settings)
+# PAGE: DEVICES (Observed Monitored Network Endpoints)
 # ═════════════════════════════════════════════════════════════
-elif selected_nav in ["Devices", "Reports", "Settings"]:
+elif selected_nav == "Devices":
+    st.html("""
+    <div class="page-title">Monitored Devices</div>
+    <div class="page-subtitle">Real-time inventory of observed network endpoints communicating with IoT Shield.</div>
+    """)
+
+    # Extract device records from fb_devices or alerts
+    devices_dict = {}
+    if fb_devices and isinstance(fb_devices, dict):
+        for k, v in fb_devices.items():
+            if isinstance(v, dict):
+                ip = v.get("ip", k)
+                devices_dict[ip] = dict(v)
+
+    # Supplement or fallback from alerts
+    for a in alerts:
+        src = a.get("src_ip")
+        if not src:
+            continue
+        ts = a.get("timestamp", "")
+        proto = a.get("proto", "TCP")
+        is_th = a.get("label", "benign") != "benign"
+        if src not in devices_dict:
+            devices_dict[src] = {
+                "ip": src,
+                "mac": "Observed via LAN",
+                "first_seen": ts,
+                "last_seen": ts,
+                "flows": 1,
+                "threats": 1 if is_th else 0,
+                "last_proto": str(proto).upper(),
+            }
+        else:
+            dev = devices_dict[src]
+            if ts and ts > str(dev.get("last_seen", "")):
+                dev["last_seen"] = ts
+            dev["flows"] = dev.get("flows", 0) + 1
+            if is_th:
+                dev["threats"] = dev.get("threats", 0) + 1
+
+    device_list = list(devices_dict.values())
+
+    # Classify activity state: Active (<60s), Recently seen (60-300s), Not recently observed (>300s)
+    now_dt = datetime.now(timezone.utc)
+    for d in device_list:
+        ls = d.get("last_seen", "")
+        state = "Not recently observed"
+        age_str = "Unknown"
+        if ls:
+            try:
+                dt_ls = datetime.fromisoformat(str(ls).replace("Z", "+00:00"))
+                if dt_ls.tzinfo is None:
+                    dt_ls = dt_ls.replace(tzinfo=timezone.utc)
+                diff_sec = max(0, (now_dt - dt_ls).total_seconds())
+                if diff_sec <= 60:
+                    state = "Active"
+                    age_str = f"{int(diff_sec)}s ago"
+                elif diff_sec <= 300:
+                    state = "Recently seen"
+                    age_str = f"{int(diff_sec // 60)}m ago"
+                else:
+                    state = "Not recently observed"
+                    age_str = f"{int(diff_sec // 3600)}h ago" if diff_sec < 86400 else f"{int(diff_sec // 86400)}d ago"
+            except Exception:
+                age_str = format_relative_time(ls)
+        d["state"] = state
+        d["age_str"] = age_str
+
+    # Device summary KPIs
+    tot_devs = len(device_list)
+    active_devs = sum(1 for d in device_list if d.get("state") == "Active")
+    threat_devs = sum(1 for d in device_list if d.get("threats", 0) > 0)
+    total_dev_flows = sum(d.get("flows", 0) for d in device_list)
+
+    dev_kpi_html = dedent(f"""
+    <div class="kpi-grid">
+        {render_kpi_card("Total Devices", f"{tot_devs}", "Observed", "on local LAN", "💻", "icon-blue", "#2E90FA", "up")}
+        {render_kpi_card("Active Now", f"{active_devs}", "Transmitting", "< 60s activity", "●", "icon-green", "#12B76A", "up")}
+        {render_kpi_card("Flagged Endpoints", f"{threat_devs}", "Threats found", "requires review", "🛡", "icon-red", "#D92D20", "flat")}
+        {render_kpi_card("Observed Flows", f"{total_dev_flows}", "Aggregated", "across devices", "⚡", "icon-red", "#98A2B3", "up")}
+    </div>
+    """).strip()
+    st.html(dev_kpi_html)
+
+    # Filter toolbar
+    df_col1, df_col2 = st.columns([2, 1])
+    with df_col1:
+        dev_search = st.text_input("Filter device IP", placeholder="Search by IP address...", key="f_dev_search")
+    with df_col2:
+        dev_filter_state = st.selectbox("Status", ["All", "Active", "Recently seen", "Not recently observed"], key="f_dev_state")
+
+    filtered_devices = device_list
+    if dev_search:
+        kw = dev_search.lower()
+        filtered_devices = [d for d in filtered_devices if kw in str(d.get("ip", "")).lower()]
+    if dev_filter_state != "All":
+        filtered_devices = [d for d in filtered_devices if d.get("state") == dev_filter_state]
+
+    if not filtered_devices:
+        render_empty_state("No devices observed", "Awaiting packets from local network interfaces.")
+    else:
+        # Table rows & mobile cards
+        dev_rows_html = ""
+        dev_cards_html = ""
+        for d in sorted(filtered_devices, key=lambda x: (x.get("state") != "Active", -x.get("flows", 0))):
+            ip = str(d.get("ip", "Unknown"))
+            mac = str(d.get("mac", "Observed via LAN"))
+            state = d.get("state", "Not recently observed")
+            age_str = d.get("age_str", "Unknown")
+            flows = d.get("flows", 0)
+            threats = d.get("threats", 0)
+            proto = d.get("last_proto", "TCP")
+
+            if state == "Active":
+                chip_cls = "chip-benign"
+                chip_txt = "● Active"
+            elif state == "Recently seen":
+                chip_cls = "chip-portscan"
+                chip_txt = "● Recently Seen"
+            else:
+                chip_cls = "chip-malware"
+                chip_txt = "○ Inactive"
+
+            th_badge = f"<span class='chip chip-ddos'>⚠️ {threats} Threat(s)</span>" if threats > 0 else "<span style='color:#12B76A;font-weight:600;'>Clean</span>"
+
+            dev_rows_html += f"""<tr>
+<td class="src-cell" style="font-weight:600;">{ip}</td>
+<td class="mono-cell" style="color:#667085;">{mac}</td>
+<td><span class="chip {chip_cls}">{chip_txt}</span></td>
+<td style="color:#475467;">{age_str}</td>
+<td class="mono-cell" style="color:#101828;">{flows:,}</td>
+<td>{th_badge}</td>
+<td class="mono-cell" style="color:#667085;">{proto}</td>
+</tr>"""
+
+            dev_cards_html += f"""<div class="mobile-flow-card">
+<div class="flow-card-header">
+    <span class="src-cell" style="font-size:0.95rem;font-weight:700;">{ip}</span>
+    <span class="chip {chip_cls}">{chip_txt}</span>
+</div>
+<div class="flow-card-row">
+    <span class="flow-label">Status</span>
+    <span>{age_str}</span>
+</div>
+<div class="flow-card-row">
+    <span class="flow-label">Security</span>
+    <span>{th_badge}</span>
+</div>
+<div class="flow-card-footer">
+    <span>Flows: <b style="color:#101828;">{flows:,}</b></span>
+    <span>Proto: <b style="color:#101828;">{proto}</b></span>
+</div>
+</div>"""
+
+        dev_table_container_html = dedent(f"""
+        <!-- Desktop Table View -->
+        <div class="desktop-table-wrapper table-card-wrapper">
+            <table class="saas-table">
+                <thead>
+                    <tr>
+                        <th>Device IP</th>
+                        <th>Identifier / MAC</th>
+                        <th>Activity State</th>
+                        <th>Last Observed</th>
+                        <th>Total Flows</th>
+                        <th>Threat Status</th>
+                        <th>Last Protocol</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {dev_rows_html}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Mobile Cards List -->
+        <div class="mobile-cards-list">
+            {dev_cards_html}
+        </div>
+        """).strip()
+        st.html(dev_table_container_html)
+
+# ═════════════════════════════════════════════════════════════
+# OTHER MOCKUP NAV PAGES (Reports, Settings)
+# ═════════════════════════════════════════════════════════════
+elif selected_nav in ["Reports", "Settings"]:
     st.html(f"""
     <div class="page-title">{selected_nav}</div>
     <div class="page-subtitle">Manage network {selected_nav.lower()} for IoT Shield deployment.</div>
@@ -927,10 +1203,10 @@ elif selected_nav in ["Devices", "Reports", "Settings"]:
     <div class="saas-card">
         {render_section_header(f"{selected_nav} Overview", f"Active sensor configuration and telemetry parameters.")}
         <div style="font-size:0.875rem;color:#475467;line-height:1.8;padding:0.5rem 0;">
-            <div>Network Interface: <b style="color:#101828;">Wi-Fi / LAN</b></div>
-            <div>Active Sensors: <b style="color:#101828;">Local Scapy Sniffer Node</b></div>
+            <div>Network Interface: <b style="color:#101828;">{interface_name}</b></div>
+            <div>Active Sensors: <b style="color:#101828;">{sensor_id}</b></div>
             <div>Detection Pipeline: <b style="color:#101828;">Random Forest + XGBoost Soft-Voting</b></div>
-            <div>Cloud Ingest: <b style="color:#101828;">Firebase Realtime Database</b></div>
+            <div>Cloud Ingest: <b style="color:#101828;">Firebase Realtime Database ({'Connected' if fb_connected else 'Unavailable'})</b></div>
         </div>
     </div>
     """)

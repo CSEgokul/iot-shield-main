@@ -53,14 +53,19 @@ def inject_global_styles():
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
-    /* ── App Canvas ── */
+    /* ── App Canvas & Zero Horizontal Scroll ── */
+    html, body, [data-testid="stApp"], [data-testid="stAppViewContainer"], [data-testid="stMain"], .main, .block-container {
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+
     html, body, [data-testid="stApp"], [data-testid="stAppViewContainer"] {
         background: linear-gradient(180deg, #FFF8F8 0%, #FFFFFF 40%, #F8FAFC 100%) !important;
         background-color: #FFF8F8 !important;
         color: #101828 !important;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif !important;
         -webkit-font-smoothing: antialiased;
-        overflow-x: hidden !important;
     }
 
     /* ── Streamlit Header / Hamburger Styling ── */
@@ -70,12 +75,21 @@ def inject_global_styles():
     }
     header[data-testid="stHeader"] {
         background: transparent !important;
-    }
-    /* Mobile sidebar toggle button */
-    [data-testid="stSidebarCollapsedControl"] {
-        display: block !important;
-        color: #D92D20 !important;
         z-index: 9999 !important;
+    }
+
+    /* Sidebar collapse / toggle control button */
+    [data-testid="stSidebarCollapsedControl"] {
+        display: flex !important;
+        color: #D92D20 !important;
+        z-index: 10001 !important;
+    }
+    [data-testid="stSidebarCollapsedControl"] button {
+        border-radius: 8px !important;
+        border: 1px solid #EAECF0 !important;
+        background: #FFFFFF !important;
+        color: #D92D20 !important;
+        box-shadow: 0 1px 3px rgba(16, 24, 40, 0.08) !important;
     }
 
     .block-container {
@@ -603,52 +617,234 @@ def inject_global_styles():
         color: #475467;
     }
 
+    /* ── Real Status Banner (Desktop + Mobile) ── */
+    .desktop-only-banner {
+        background: #FFFFFF;
+        border: 1px solid #EAECF0;
+        border-radius: 10px;
+        padding: 0.65rem 1rem;
+        margin-bottom: 1.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03);
+        box-sizing: border-box;
+        width: 100%;
+        gap: 0.75rem;
+    }
+    .status-banner-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: #101828;
+        flex-shrink: 0;
+    }
+    .status-banner-item {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        font-size: 0.8125rem;
+        white-space: nowrap;
+    }
+    .status-banner-label {
+        color: #667085;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        font-weight: 500;
+    }
+    .status-banner-val {
+        font-weight: 600;
+        color: #101828;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+    .mobile-only-banner {
+        background: #FFFFFF;
+        border: 1px solid #EAECF0;
+        border-radius: 10px;
+        padding: 0.75rem 0.9rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03);
+        box-sizing: border-box;
+        width: 100%;
+    }
+    .mobile-top-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
     /* ── MOBILE-FIRST RESPONSIVE BREAKPOINTS ── */
+    @media (min-width: 769px) {
+        .mobile-only-banner {
+            display: none !important;
+        }
+        .desktop-only-banner {
+            display: flex !important;
+        }
+    }
+
     @media (max-width: 1024px) {
         .kpi-grid {
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 0.85rem !important;
         }
     }
 
     @media (max-width: 768px) {
-        .block-container {
-            padding-left: 14px !important;
-            padding-right: 14px !important;
-            padding-top: 0.85rem !important;
+        /* Mobile Main Content Uses 100% Viewport Width */
+        [data-testid="stAppViewContainer"] {
+            width: 100% !important;
             max-width: 100% !important;
+            overflow-x: hidden !important;
         }
-        .page-title {
-            font-size: 1.5rem;
+        [data-testid="stMain"] {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            overflow-x: hidden !important;
         }
+        .block-container {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding-left: 16px !important;
+            padding-right: 16px !important;
+            padding-top: 3.25rem !important;
+            padding-bottom: 2.5rem !important;
+            box-sizing: border-box !important;
+        }
+
+        /* Mobile Sidebar Drawer Overlay (Never consumes permanent 300px width) */
+        [data-testid="stSidebar"] {
+            max-width: 82vw !important;
+            width: 290px !important;
+            box-shadow: 4px 0 24px rgba(0, 0, 0, 0.18) !important;
+            z-index: 10000 !important;
+        }
+        [data-testid="stSidebarCollapsedControl"] {
+            display: flex !important;
+            position: fixed !important;
+            top: 0.65rem !important;
+            left: 0.65rem !important;
+            z-index: 10002 !important;
+        }
+
+        /* Responsive Columns: Stack side-by-side elements vertically on mobile */
+        [data-testid="stHorizontalBlock"] {
+            flex-direction: column !important;
+            flex-wrap: wrap !important;
+            gap: 0.75rem !important;
+            width: 100% !important;
+        }
+        [data-testid="column"] {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 100% !important;
+            flex: 1 1 100% !important;
+            margin-bottom: 0.5rem !important;
+        }
+
+        /* Header controls 100% full width */
+        .stTextInput, .stSelectbox, .stButton, .stDownloadButton {
+            width: 100% !important;
+        }
+        .stButton > button, .stDownloadButton > button {
+            width: 100% !important;
+        }
+
+        /* KPI Cards Grid */
         .kpi-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 0.75rem;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 0.75rem !important;
         }
         .kpi-card {
-            padding: 0.95rem 1rem;
-            min-height: 110px;
+            padding: 0.95rem 1rem !important;
+            min-height: 108px !important;
         }
         .kpi-value {
-            font-size: 1.6rem;
+            font-size: 1.55rem !important;
         }
         .kpi-sparkline {
-            display: none;
+            display: none !important;
         }
-        /* Switch from table to mobile cards on phone */
+
+        /* Switch from Desktop Table to Mobile Cards */
         .desktop-table-wrapper {
-            display: none;
+            display: none !important;
         }
         .mobile-cards-list {
-            display: block;
+            display: block !important;
+            width: 100% !important;
+        }
+
+        /* Responsive Title and Subtitle */
+        .page-title {
+            font-size: 1.6rem !important;
+        }
+        .page-subtitle {
+            font-size: 0.825rem !important;
+            margin-bottom: 0.85rem !important;
+        }
+        .saas-card {
+            padding: 1rem 1.1rem !important;
+            margin-bottom: 1rem !important;
+        }
+
+        /* Status banner visibility */
+        .desktop-only-banner {
+            display: none !important;
+        }
+        .mobile-only-banner {
+            display: block !important;
         }
     }
 
-    @media (max-width: 480px) {
-        .kpi-grid {
-            grid-template-columns: 1fr;
+    @media (max-width: 600px) {
+        .page-title {
+            font-size: 24px !important;
         }
-        .mockup-brand-name {
-            font-size: 1rem;
+        .saas-card-title {
+            font-size: 17px !important;
+        }
+        .kpi-value {
+            font-size: 28px !important;
+        }
+        .kpi-label {
+            font-size: 13px !important;
+        }
+        .kpi-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 12px !important;
+            margin-bottom: 18px !important;
+        }
+        .saas-card {
+            padding: 14px 16px !important;
+            margin-bottom: 18px !important;
+        }
+        .kpi-card {
+            padding: 14px 16px !important;
+        }
+    }
+
+    @media (max-width: 430px) {
+        .block-container {
+            padding-left: 14px !important;
+            padding-right: 14px !important;
+        }
+    }
+
+    @media (max-width: 390px) {
+        .kpi-grid {
+            grid-template-columns: 1fr !important;
+            gap: 10px !important;
         }
     }
     </style>
@@ -694,10 +890,21 @@ def render_sidebar_header():
     st.html(html)
 
 
-def render_sidebar_status(is_detector_live: bool, data_source: str, last_ts: str):
+def render_sidebar_status(
+    is_detector_live: bool,
+    data_source: str,
+    last_ts: str,
+    mode: str = "live",
+    interface: str = "Wi-Fi",
+    model_name: str = "RF + XGBoost"
+):
     """Renders the real system status card and user profile at the bottom of the sidebar."""
-    det_dot = PALETTE["success_green"] if is_detector_live else PALETTE["warning_amber"]
-    det_text = "Detector Online" if is_detector_live else "Detector Offline"
+    if is_detector_live:
+        det_dot = PALETTE["success_green"]
+        det_text = "Detector Online" if mode == "live" else "Simulation Active"
+    else:
+        det_dot = PALETTE["warning_amber"]
+        det_text = "Detector Offline"
 
     fb_dot = PALETTE["success_green"] if data_source.startswith("Firebase") else PALETTE["warning_amber"]
     fb_text = "Firebase Connected" if data_source.startswith("Firebase") else "Local Cache"
@@ -722,22 +929,104 @@ def render_sidebar_status(is_detector_live: bool, data_source: str, last_ts: str
         </div>
         <div class="status-row" style="margin-top:0.45rem;border-top:1px solid #FEE4E2;padding-top:0.4rem;font-size:0.75rem;">
             <span>Model:</span>
-            <span style="font-weight:600;color:#101828;">RF + XGBoost</span>
+            <span style="font-weight:600;color:#101828;">{model_name}</span>
         </div>
         <div class="status-row" style="font-size:0.75rem;">
             <span>Interface:</span>
-            <span style="font-weight:600;color:#101828;">Wi-Fi</span>
+            <span style="font-weight:600;color:#101828;">{interface}</span>
         </div>
     </div>
     <div class="sidebar-profile">
-        <div class="profile-avatar">VR</div>
+        <div class="profile-avatar">IS</div>
         <div class="profile-info">
-            <div class="profile-name">Vardhan Reddy</div>
-            <div class="profile-role">Administrator</div>
+            <div class="profile-name">IoT Shield</div>
+            <div class="profile-role">IoT Shield</div>
         </div>
     </div>
     """).strip()
     st.html(html)
+
+
+def render_status_banner(
+    detector_online: bool,
+    mode_str: str,
+    fb_connected: bool,
+    capture_active: bool,
+    last_packet_ago: str,
+    sensor_id: str = "IOT-SENSOR-01"
+):
+    """Renders the top status banner on both desktop and mobile views."""
+    det_dot = PALETTE["success_green"] if detector_online else (PALETTE["warning_amber"] if detector_online is None else "#98A2B3")
+    det_text = "Online" if detector_online else "Offline"
+
+    mode_display = "Live" if mode_str == "live" else ("Simulation" if mode_str == "simulation" else "Standby")
+
+    fb_dot = PALETTE["success_green"] if fb_connected else PALETTE["warning_amber"]
+    fb_text = "Connected" if fb_connected else "Unavailable"
+
+    cap_dot = PALETTE["success_green"] if capture_active else PALETTE["warning_amber"]
+    cap_text = "Active" if capture_active else "Waiting"
+
+    banner_html = dedent(f"""
+    <!-- Desktop Minimal Status Bar -->
+    <div class="desktop-only-banner">
+        <div class="status-banner-brand">
+            <span>🛡</span>
+            <span>IoT Shield</span>
+        </div>
+        <div style="height:18px;width:1px;background:#EAECF0;"></div>
+        <div class="status-banner-item">
+            <span class="status-banner-label">Detector</span>
+            <span class="status-banner-val">
+                <span class="dot" style="background:{det_dot};"></span>
+                {det_text}
+            </span>
+        </div>
+        <div class="status-banner-item">
+            <span class="status-banner-label">Mode</span>
+            <span class="status-banner-val" style="color:#D92D20;">{mode_display}</span>
+        </div>
+        <div class="status-banner-item">
+            <span class="status-banner-label">Firebase</span>
+            <span class="status-banner-val">
+                <span class="dot" style="background:{fb_dot};"></span>
+                {fb_text}
+            </span>
+        </div>
+        <div class="status-banner-item">
+            <span class="status-banner-label">Capture</span>
+            <span class="status-banner-val">
+                <span class="dot" style="background:{cap_dot};"></span>
+                {cap_text}
+            </span>
+        </div>
+        <div class="status-banner-item">
+            <span class="status-banner-label">Last Packet</span>
+            <span class="status-banner-val">{last_packet_ago}</span>
+        </div>
+        <div class="status-banner-item">
+            <span class="status-banner-label">Sensor</span>
+            <span class="status-banner-val" style="font-family:'JetBrains Mono',monospace;color:#475467;">{sensor_id}</span>
+        </div>
+    </div>
+
+    <!-- Mobile Top Header Bar -->
+    <div class="mobile-only-banner">
+        <div class="mobile-top-bar">
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+                <div class="mockup-brand-logo" style="width:28px;height:28px;font-size:0.9rem;border-radius:6px;">🛡</div>
+                <span style="font-weight:700;font-size:1.05rem;color:#101828;">IoT Shield</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.4rem;background:#F9FAFB;border:1px solid #EAECF0;border-radius:16px;padding:0.25rem 0.65rem;font-size:0.75rem;">
+                <span class="dot" style="background:{det_dot};"></span>
+                <span style="font-weight:600;color:#344054;">{mode_display}</span>
+                <span style="color:#D0D5DD;">•</span>
+                <span style="color:#667085;">{fb_text}</span>
+            </div>
+        </div>
+    </div>
+    """).strip()
+    st.html(banner_html)
 
 
 def get_sparkline_svg(color_stroke: str, curve_type: str = "up") -> str:
