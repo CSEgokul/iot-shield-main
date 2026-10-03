@@ -1,6 +1,6 @@
 """
-step4_dashboard.py — IoT Shield Enterprise Security Operations Dashboard
-High-performance, responsive cybersecurity monitoring platform for Streamlit Cloud & local detection.
+step4_dashboard.py — IoT Shield Network Threat Monitoring
+Restrained, professional B2B security operations interface for Streamlit Cloud and local detection.
 """
 
 import os
@@ -13,20 +13,20 @@ import streamlit as st
 from datetime import datetime
 from streamlit_autorefresh import st_autorefresh
 
-# Firebase Realtime Database bridge & AI Security Copilot
+# Firebase synchronization & AI assistant integration
 import firebase_sync
 import ai_assistant
 from ui_components import (
-    PALETTE, CLASS_COLORS, SEV_COLORS,
-    inject_global_styles, render_header, render_live_status_card,
-    render_kpi_card, render_threat_card, render_empty_state, format_relative_time
+    PALETTE, CLASS_COLORS, CLASS_LABELS,
+    inject_global_styles, format_relative_time,
+    render_app_header, render_system_status,
+    render_metric_card, render_empty_state
 )
 
 # ─────────────────────────────────────────────────────────────
 # Paths & Configuration
 # ─────────────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_DIR   = os.path.join(BASE_DIR, "models")
 DATA_DIR    = os.path.join(BASE_DIR, "data")
 ALERTS_FILE = os.path.join(DATA_DIR, "live_alerts.json")
 STATS_FILE  = os.path.join(DATA_DIR, "live_stats.json")
@@ -36,28 +36,25 @@ os.makedirs(DATA_DIR, exist_ok=True)
 # Page Setup & Styling
 # ─────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="IoT Shield · Threat Intelligence",
-    page_icon="🛡️",
+    page_title="IoT Shield",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# Inject enterprise cybersecurity CSS tokens & responsive styles
+# Inject refined global typography and layout styles
 inject_global_styles()
 
 # ─────────────────────────────────────────────────────────────
-# Session State & Controls
+# Session State
 # ─────────────────────────────────────────────────────────────
 if "auto_refresh" not in st.session_state:
     st.session_state.auto_refresh = True
-if "ai_question" not in st.session_state:
-    st.session_state.ai_question = ""
-if "filter_classes" not in st.session_state:
-    st.session_state.filter_classes = ["benign", "ddos", "malware", "portscan"]
+if "ai_prompt" not in st.session_state:
+    st.session_state.ai_prompt = ""
 
 # Auto refresh trigger (3000ms = 3s)
 if st.session_state.auto_refresh:
-    st_autorefresh(interval=3000, key="soc_autorefresh")
+    st_autorefresh(interval=3000, key="app_autorefresh")
 
 # ─────────────────────────────────────────────────────────────
 # Data Loading & Synchronization
@@ -88,7 +85,7 @@ fb_alerts, fb_stats = firebase_sync.fetch()
 if fb_alerts is not None:
     alerts = fb_alerts
     stats  = fb_stats or {"total": 0, "threats": 0, "critical": 0, "benign": 0}
-    DATA_SOURCE = "Firebase · live"
+    DATA_SOURCE = "Firebase"
 else:
     alerts = load_local_alerts()
     stats  = load_local_stats()
@@ -112,7 +109,7 @@ if alerts:
         alert_dt = datetime.fromisoformat(raw_ts)
         diff_local = abs((datetime.now() - alert_dt).total_seconds())
         diff_utc = abs((datetime.utcnow() - alert_dt).total_seconds())
-        if min(diff_local, diff_utc) < 180:  # Fresh packet within 3 mins
+        if min(diff_local, diff_utc) < 180:  # Fresh data within 3 minutes
             is_recent_alert = True
     except Exception:
         pass
@@ -128,112 +125,65 @@ last_active_time = st.session_state.get("last_seen_active", 0)
 is_detector_live = is_recent_alert or (last_active_time > 0 and (time.time() - last_active_time < 120))
 
 # ─────────────────────────────────────────────────────────────
-# Top Sticky SOC Header
+# Top Application Header
 # ─────────────────────────────────────────────────────────────
-render_header(
-    stats=stats,
+render_app_header(
     is_detector_live=is_detector_live,
     data_source=DATA_SOURCE,
-    last_ts=latest_alert_ts,
-    auto_refresh=st.session_state.auto_refresh
+    last_ts=latest_alert_ts
 )
 
 # ─────────────────────────────────────────────────────────────
-# System Utility Bar (Controls & Refresh)
+# Secondary Utility Bar (Refresh, Reset)
 # ─────────────────────────────────────────────────────────────
-u_col1, u_col2, u_col3, u_col4 = st.columns([2.5, 1, 1, 1])
-
+u_col1, u_col2, u_col3 = st.columns([3, 1, 1])
 with u_col1:
-    st.markdown(
-        f'<div style="font-size:0.75rem;color:#6F7A86;padding-top:8px;">'
-        f'System Clock: <span style="font-family:JetBrains Mono,monospace;color:#9AA6B2;">{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</span> '
-        f'· Refresh: <span style="color:#35C77A;">{"Active (3s)" if st.session_state.auto_refresh else "Paused"}</span>'
-        f'</div>',
-        unsafe_allow_html=True
+    st.session_state.auto_refresh = st.toggle(
+        "Auto-refresh (3s)",
+        value=st.session_state.auto_refresh,
+        key="toggle_refresh"
     )
 with u_col2:
-    st.session_state.auto_refresh = st.toggle("Auto-refresh", value=st.session_state.auto_refresh, key="toggle_refresh")
-with u_col3:
-    if st.button("↺ Refresh Data", key="btn_refresh"):
+    if st.button("Refresh", key="btn_refresh"):
         st.rerun()
-with u_col4:
-    if st.button("Clear Cache", key="btn_clear_data"):
+with u_col3:
+    if st.button("Reset data", key="btn_reset"):
         clear_dashboard_data()
         st.rerun()
 
 # ─────────────────────────────────────────────────────────────
-# Top Level Navigation Tabs
+# Top Navigation Tabs
 # ─────────────────────────────────────────────────────────────
 tab_overview, tab_analytics, tab_alerts, tab_ai = st.tabs([
-    "Overview", "Analytics", "Alerts", "AI Assistant"
+    "Overview", "Analytics", "Alerts", "Security assistant"
 ])
 
 # ═════════════════════════════════════════════════════════════
 # TAB 1: OVERVIEW
 # ═════════════════════════════════════════════════════════════
 with tab_overview:
-    # 1. Dedicated Live Detector Status Card
-    render_live_status_card(
-        is_live=is_detector_live,
-        last_ts=latest_alert_ts,
+    # 1. System Status
+    render_system_status(
+        is_detector_live=is_detector_live,
         data_source=DATA_SOURCE,
-        total_flows=total_flows
+        last_ts=latest_alert_ts
     )
 
-    # 2. Key Performance Indicators (KPI Grid)
+    # 2. Key Metrics (4 Compact Cards)
     threat_rate = (threats_count / total_flows * 100) if total_flows > 0 else 0.0
-    kpi_html = '<div class="metric-grid-4">'
-    kpi_html += render_kpi_card(
-        label="Total Network Flows",
-        value=f"{total_flows:,}",
-        footer_text="↑ Real-time traffic stream",
-        footer_type="positive" if is_detector_live else "info"
-    )
-    kpi_html += render_kpi_card(
-        label="Flagged Threats",
-        value=f"{threats_count:,}",
-        footer_text=f"{threat_rate:.1f}% incident ratio",
-        footer_type="critical" if threats_count > 0 else "positive"
-    )
-    kpi_html += render_kpi_card(
-        label="Benign Traffic",
-        value=f"{benign_count:,}",
-        footer_text=f"{(100.0 - threat_rate):.1f}% verified safe",
-        footer_type="positive"
-    )
-    kpi_html += render_kpi_card(
-        label="Packets Analysed",
-        value=f"{total_flows:,}",
-        footer_text="Dual-model ensemble verified",
-        footer_type="info"
-    )
-    kpi_html += '</div>'
-    st.markdown(kpi_html, unsafe_allow_html=True)
+    metric_cards_html = f"""<div class="metric-grid">
+{render_metric_card("Network flows", f"{total_flows:,}", "Total evaluated")}
+{render_metric_card("Threats", f"{threats_count:,}", f"{threat_rate:.1f}% incident rate")}
+{render_metric_card("Benign traffic", f"{benign_count:,}", f"{(100.0 - threat_rate):.1f}% safe flows")}
+{render_metric_card("Packets analysed", f"{total_flows:,}", "Dual-model verified")}
+</div>"""
+    st.html(metric_cards_html)
 
-    # 3. Threat Classification Breakdown Cards (4 Cards)
-    c_benign   = sum(1 for a in alerts if a.get("label") == "benign")
-    c_portscan = sum(1 for a in alerts if a.get("label") == "portscan")
-    c_ddos     = sum(1 for a in alerts if a.get("label") == "ddos")
-    c_malware  = sum(1 for a in alerts if a.get("label") == "malware")
-
-    threat_grid_html = '<div class="metric-grid-4">'
-    threat_grid_html += render_threat_card("Benign Traffic", c_benign, total_flows, PALETTE["green"])
-    threat_grid_html += render_threat_card("Port Scan Probing", c_portscan, total_flows, PALETTE["blue"])
-    threat_grid_html += render_threat_card("DDoS Attack Flow", c_ddos, total_flows, PALETTE["red"])
-    threat_grid_html += render_threat_card("Malware C2 Activity", c_malware, total_flows, PALETTE["amber"])
-    threat_grid_html += '</div>'
-    st.markdown(threat_grid_html, unsafe_allow_html=True)
-
-    # 4. Traffic Classification Over Time (Plotly Enterprise Chart)
-    st.markdown("""
-    <div class="soc-card">
-        <div class="soc-card-header">
-            <div>
-                <div class="soc-card-title">Traffic Classification Over Time</div>
-                <div class="soc-card-subtitle">Real-time flow volume segregated by ML classification category</div>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+    # 3. Traffic Over Time Chart
+    st.html("""<div class="content-section">
+<div class="section-title">Traffic over time</div>
+<div class="section-subtitle">Real-time flow volume by classification</div>
+</div>""")
 
     if alerts:
         df_time = pd.DataFrame(alerts)
@@ -248,12 +198,10 @@ with tab_overview:
                 fig_time.add_trace(go.Scatter(
                     x=sub["bucket"],
                     y=sub["count"],
-                    name=cls_name.upper(),
+                    name=CLASS_LABELS.get(cls_name, cls_name.capitalize()),
                     mode="lines",
-                    line=dict(color=cls_color, width=2.2, shape="spline"),
-                    fill="tozeroy",
-                    fillcolor=f"rgba({int(cls_color[1:3], 16)}, {int(cls_color[3:5], 16)}, {int(cls_color[5:7], 16)}, 0.08)",
-                    hovertemplate="<b>%{x|%H:%M:%S}</b><br>" + cls_name.upper() + ": %{y} flows<extra></extra>"
+                    line=dict(color=cls_color, width=1.8),
+                    hovertemplate="<b>%{x|%H:%M:%S}</b> · " + CLASS_LABELS.get(cls_name, cls_name) + ": %{y}<extra></extra>"
                 ))
 
         fig_time.update_layout(
@@ -262,13 +210,13 @@ with tab_overview:
             font=dict(color=PALETTE["text_secondary"], family="Inter", size=11),
             xaxis=dict(
                 showgrid=True,
-                gridcolor="rgba(255,255,255,0.05)",
+                gridcolor=PALETTE["border_subtle"],
                 zeroline=False,
                 color=PALETTE["text_muted"],
             ),
             yaxis=dict(
                 showgrid=True,
-                gridcolor="rgba(255,255,255,0.05)",
+                gridcolor=PALETTE["border_subtle"],
                 zeroline=False,
                 color=PALETTE["text_muted"],
             ),
@@ -278,74 +226,125 @@ with tab_overview:
                 y=1.02,
                 xanchor="right",
                 x=1,
-                font=dict(color=PALETTE["text_secondary"], size=10),
+                font=dict(color=PALETTE["text_secondary"], size=11),
                 bgcolor="rgba(0,0,0,0)"
             ),
-            margin=dict(t=15, b=10, l=10, r=10),
-            height=250,
+            margin=dict(t=10, b=10, l=10, r=10),
+            height=280,
         )
         st.plotly_chart(fig_time, use_container_width=True)
     else:
-        render_empty_state("No Telemetry Streamed Yet", "Start your local detector node (start_detector.bat) to ingest real-time traffic.")
-    st.markdown('</div>', unsafe_allow_html=True)
+        render_empty_state("No traffic data", "Waiting for network telemetry from the detector.")
 
-    # 5. Live Traffic Table
-    st.markdown("""
-    <div class="soc-card">
-        <div class="soc-card-header">
-            <div>
-                <div class="soc-card-title">Live Network Traffic & Recent Events</div>
-                <div class="soc-card-subtitle">Inspecting latest 25 network flows analyzed by IoT Shield</div>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+    # 4. Threat Breakdown Summary
+    c_benign   = sum(1 for a in alerts if a.get("label") == "benign")
+    c_portscan = sum(1 for a in alerts if a.get("label") == "portscan")
+    c_ddos     = sum(1 for a in alerts if a.get("label") == "ddos")
+    c_malware  = sum(1 for a in alerts if a.get("label") == "malware")
+
+    def calc_pct(val):
+        return f"{(val / total_flows * 100):.1f}%" if total_flows > 0 else "0.0%"
+
+    threat_breakdown_html = f"""<div class="content-section">
+<div class="section-title">Threat classification</div>
+<div class="section-subtitle">Summary of all classified flows</div>
+<div class="breakdown-table">
+<div class="breakdown-row">
+<div class="breakdown-left">
+<span class="status-dot" style="background-color: {PALETTE['green']};"></span>
+<span>Benign</span>
+</div>
+<div class="breakdown-right">
+<span class="breakdown-count">{c_benign:,}</span>
+<span class="breakdown-pct">{calc_pct(c_benign)}</span>
+</div>
+</div>
+<div class="breakdown-row">
+<div class="breakdown-left">
+<span class="status-dot" style="background-color: {PALETTE['blue']};"></span>
+<span>Port scan</span>
+</div>
+<div class="breakdown-right">
+<span class="breakdown-count">{c_portscan:,}</span>
+<span class="breakdown-pct">{calc_pct(c_portscan)}</span>
+</div>
+</div>
+<div class="breakdown-row">
+<div class="breakdown-left">
+<span class="status-dot" style="background-color: {PALETTE['red']};"></span>
+<span>DDoS</span>
+</div>
+<div class="breakdown-right">
+<span class="breakdown-count">{c_ddos:,}</span>
+<span class="breakdown-pct">{calc_pct(c_ddos)}</span>
+</div>
+</div>
+<div class="breakdown-row">
+<div class="breakdown-left">
+<span class="status-dot" style="background-color: {PALETTE['amber']};"></span>
+<span>Malware</span>
+</div>
+<div class="breakdown-right">
+<span class="breakdown-count">{c_malware:,}</span>
+<span class="breakdown-pct">{calc_pct(c_malware)}</span>
+</div>
+</div>
+</div>
+</div>"""
+    st.html(threat_breakdown_html)
+
+    # 5. Recent Network Activity Table
+    st.html("""<div class="content-section">
+<div class="section-title">Recent network activity</div>
+<div class="section-subtitle">Latest 20 network flows analyzed</div>
+</div>""")
 
     if alerts:
-        table_html = """
-        <div class="soc-table-wrapper">
-            <table class="soc-table">
-                <thead>
-                    <tr>
-                        <th>Time</th>
-                        <th>Source Node</th>
-                        <th>Destination Node</th>
-                        <th>Protocol</th>
-                        <th>Classification</th>
-                        <th>Confidence</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-        """
-        for a in reversed(alerts[-25:]):
+        rows_html = ""
+        for a in reversed(alerts[-20:]):
             lbl = a.get("label", "benign")
-            sev = a.get("severity", "none")
+            cls_text = CLASS_LABELS.get(lbl, lbl.capitalize())
+            dot_color = CLASS_COLORS.get(lbl, PALETTE["text_muted"])
             ts = str(a.get("timestamp", ""))[:19].replace("T", " ")
             src = f"{a.get('src_ip', '0.0.0.0')}:{a.get('src_port', '')}"
             dst = f"{a.get('dst_ip', '0.0.0.0')}:{a.get('dst_port', '')}"
             conf = a.get("confidence", 100.0)
             proto = str(a.get("proto", "TCP")).upper()
 
-            badge_class = f"badge-{lbl}"
-            status_text = "PASSED" if lbl == "benign" else "ALERTED"
-            status_color = PALETTE["green"] if lbl == "benign" else PALETTE["red"]
+            rows_html += f"""<tr>
+<td class="mono-val" style="color:#A7B0BA;">{ts[11:19]}</td>
+<td class="ip-src">{src}</td>
+<td class="ip-dst">{dst}</td>
+<td class="mono-val" style="color:#A7B0BA;">{proto}</td>
+<td>
+<span class="status-indicator">
+<span class="status-dot" style="background-color:{dot_color};"></span>
+<span>{cls_text}</span>
+</span>
+</td>
+<td class="mono-val" style="color:#A7B0BA;">{conf}%</td>
+</tr>"""
 
-            table_html += f"""
-                <tr>
-                    <td style="font-family:'JetBrains Mono',monospace;color:#9AA6B2;">{ts[11:]}</td>
-                    <td style="font-family:'JetBrains Mono',monospace;color:#4C8DFF;">{src}</td>
-                    <td style="font-family:'JetBrains Mono',monospace;color:#F5F7FA;">{dst}</td>
-                    <td><span class="soc-badge" style="background:#151C25;color:#9AA6B2;border:1px solid rgba(255,255,255,0.08);">{proto}</span></td>
-                    <td><span class="soc-badge {badge_class}">{lbl.upper()}</span></td>
-                    <td style="font-family:'JetBrains Mono',monospace;">{conf}%</td>
-                    <td style="color:{status_color};font-weight:600;font-size:0.75rem;">● {status_text}</td>
-                </tr>
-            """
-        table_html += "</tbody></table></div>"
-        st.markdown(table_html, unsafe_allow_html=True)
+        table_html = f"""<div class="table-container">
+<table class="data-table">
+<thead>
+<tr>
+<th>Time</th>
+<th>Source</th>
+<th>Destination</th>
+<th>Protocol</th>
+<th>Classification</th>
+<th>Confidence</th>
+</tr>
+</thead>
+<tbody>
+{rows_html}
+</tbody>
+</table>
+</div>"""
+        st.html(table_html)
     else:
-        render_empty_state("No Traffic Events Recorded", "Waiting for incoming network flow packets from local capture.")
-    st.markdown('</div>', unsafe_allow_html=True)
+        render_empty_state("No recent activity", "Awaiting incoming network flow packets.")
 
 
 # ═════════════════════════════════════════════════════════════
@@ -355,15 +354,10 @@ with tab_analytics:
     col_ana1, col_ana2 = st.columns(2)
 
     with col_ana1:
-        st.markdown("""
-        <div class="soc-card">
-            <div class="soc-card-header">
-                <div>
-                    <div class="soc-card-title">Threat Class Distribution</div>
-                    <div class="soc-card-subtitle">Aggregate distribution across monitored sessions</div>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+        st.html("""<div class="content-section">
+<div class="section-title">Threat distribution</div>
+<div class="section-subtitle">Overall proportion by category</div>
+</div>""")
 
         if alerts:
             df_pie = pd.DataFrame(alerts)
@@ -371,15 +365,15 @@ with tab_analytics:
             counts.columns = ["label", "count"]
 
             fig_donut = go.Figure(go.Pie(
-                labels=[l.upper() for l in counts["label"]],
+                labels=[CLASS_LABELS.get(l, l.capitalize()) for l in counts["label"]],
                 values=counts["count"],
-                hole=0.62,
+                hole=0.6,
                 marker=dict(
-                    colors=[CLASS_COLORS.get(l, "#6F7A86") for l in counts["label"]],
-                    line=dict(color="#0B0F14", width=3)
+                    colors=[CLASS_COLORS.get(l, PALETTE["text_muted"]) for l in counts["label"]],
+                    line=dict(color=PALETTE["surface"], width=2)
                 ),
-                textfont=dict(family="Inter", color="#F5F7FA", size=12),
-                hovertemplate="<b>%{label}</b><br>Flows: %{value:,} (%{percent})<extra></extra>"
+                textfont=dict(family="Inter", color=PALETTE["text_primary"], size=12),
+                hovertemplate="<b>%{label}</b>: %{value:,} flows (%{percent})<extra></extra>"
             ))
             fig_donut.update_layout(
                 paper_bgcolor="rgba(0,0,0,0)",
@@ -399,22 +393,16 @@ with tab_analytics:
             )
             st.plotly_chart(fig_donut, use_container_width=True)
         else:
-            render_empty_state("No Analytics Data", "Awaiting flow samples.")
-        st.markdown('</div>', unsafe_allow_html=True)
+            render_empty_state("No distribution data", "Awaiting telemetry samples.")
 
     with col_ana2:
-        st.markdown("""
-        <div class="soc-card">
-            <div class="soc-card-header">
-                <div>
-                    <div class="soc-card-title">Detection Engine Accuracy</div>
-                    <div class="soc-card-subtitle">Validated benchmark metrics on IoT-23 test corpus</div>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+        st.html("""<div class="content-section">
+<div class="section-title">Model performance</div>
+<div class="section-subtitle">Test evaluation accuracy on IoT-23 dataset</div>
+</div>""")
 
         models_data = {
-            "Model": ["Random Forest", "XGBoost", "Ensemble Voting"],
+            "Model": ["Random Forest", "XGBoost", "Ensemble"],
             "Accuracy": [99.99, 100.00, 100.00],
         }
         fig_bar = go.Figure(go.Bar(
@@ -423,8 +411,8 @@ with tab_analytics:
             marker_color=[PALETTE["blue"], PALETTE["amber"], PALETTE["green"]],
             text=[f"{v:.2f}%" for v in models_data["Accuracy"]],
             textposition="outside",
-            textfont=dict(color="#F5F7FA", family="JetBrains Mono", size=11),
-            width=0.45,
+            textfont=dict(color=PALETTE["text_primary"], family="Inter", size=11),
+            width=0.4,
         ))
         fig_bar.update_layout(
             paper_bgcolor="rgba(0,0,0,0)",
@@ -433,88 +421,81 @@ with tab_analytics:
             xaxis=dict(showgrid=False, color=PALETTE["text_muted"]),
             yaxis=dict(
                 showgrid=True,
-                gridcolor="rgba(255,255,255,0.05)",
+                gridcolor=PALETTE["border_subtle"],
                 color=PALETTE["text_muted"],
-                range=[99.8, 100.08]
+                range=[99.85, 100.08]
             ),
             margin=dict(t=25, b=10, l=10, r=10),
             height=260,
         )
         st.plotly_chart(fig_bar, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
 
-    # Confusion matrix (120k test vectors)
-    st.markdown("""
-    <div class="soc-card">
-        <div class="soc-card-header">
-            <div>
-                <div class="soc-card-title">Ensemble Model Confusion Matrix (120,000 Test Flows)</div>
-                <div class="soc-card-subtitle">Zero false-positive benchmark performance across 4 target classes</div>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+    # Confusion Matrix
+    st.html("""<div class="content-section">
+<div class="section-title">Confusion matrix</div>
+<div class="section-subtitle">Ensemble model validation across 120,000 test flows</div>
+</div>""")
 
-    cm_labels = ["Benign", "DDoS", "Malware", "Port Scan"]
+    cm_labels = ["Benign", "DDoS", "Malware", "Port scan"]
     cm_data = [
         [29998, 1,     1,     0],
         [0,     29999, 1,     0],
         [0,     0,     30000, 0],
         [0,     0,     0,     30000],
     ]
-    html_cm = """
-    <div class="soc-table-wrapper">
-        <table class="soc-table" style="text-align:center;">
-            <thead>
-                <tr>
-                    <th style="text-align:left;">Ground Truth \\ Predicted</th>
-    """
-    for lbl in cm_labels:
-        html_cm += f"<th>{lbl}</th>"
-    html_cm += "</tr></thead><tbody>"
-
+    cm_rows = ""
     for i, row in enumerate(cm_data):
-        html_cm += f"<tr><td style='text-align:left;font-weight:600;color:#F5F7FA;'>{cm_labels[i]}</td>"
+        cm_rows += f"<tr><td style='font-weight:500;color:#F0F3F6;'>{cm_labels[i]}</td>"
         for j, val in enumerate(row):
             if i == j:
-                cell_style = "background:rgba(53,199,122,0.14);color:#35C77A;font-weight:700;font-family:JetBrains Mono,monospace;"
+                style = "color:#2FB171;font-weight:600;"
             elif val > 0:
-                cell_style = "background:rgba(255,93,93,0.18);color:#FF5D5D;font-weight:700;font-family:JetBrains Mono,monospace;"
+                style = "color:#E45858;font-weight:600;"
             else:
-                cell_style = "color:#6F7A86;font-family:JetBrains Mono,monospace;"
-            html_cm += f"<td style='{cell_style}'>{val:,}</td>"
-        html_cm += "</tr>"
-    html_cm += "</tbody></table></div>"
-    st.markdown(html_cm, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+                style = "color:#727C87;"
+            cm_rows += f"<td class='mono-val' style='text-align:center;{style}'>{val:,}</td>"
+        cm_rows += "</tr>"
+
+    cm_table_html = f"""<div class="table-container">
+<table class="data-table">
+<thead>
+<tr>
+<th>Actual \\ Predicted</th>
+<th style="text-align:center;">Benign</th>
+<th style="text-align:center;">DDoS</th>
+<th style="text-align:center;">Malware</th>
+<th style="text-align:center;">Port scan</th>
+</tr>
+</thead>
+<tbody>
+{cm_rows}
+</tbody>
+</table>
+</div>"""
+    st.html(cm_table_html)
 
 
 # ═════════════════════════════════════════════════════════════
 # TAB 3: ALERTS
 # ═════════════════════════════════════════════════════════════
 with tab_alerts:
-    st.markdown("""
-    <div class="soc-card">
-        <div class="soc-card-header">
-            <div>
-                <div class="soc-card-title">Security Incident Feed</div>
-                <div class="soc-card-subtitle">Real-time alerts flagged by IoT Shield ML detection pipeline</div>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+    st.html("""<div class="content-section">
+<div class="section-title">Security incidents</div>
+<div class="section-subtitle">Flagged anomalous network activity</div>
+</div>""")
 
-    # Filter toolbar
-    af_col1, af_col2, af_col3 = st.columns([1, 1, 2])
-    with af_col1:
-        f_label = st.selectbox("Threat Category", ["ALL", "ddos", "malware", "portscan", "benign"], key="af_label")
-    with af_col2:
-        f_sev = st.selectbox("Severity Level", ["ALL", "critical", "high", "medium", "none"], key="af_sev")
-    with af_col3:
-        search_query = st.text_input("Search IP / Port / Protocol", placeholder="e.g. 192.168.1.100 or 8080", key="af_search")
+    # Filter row
+    f_col1, f_col2, f_col3 = st.columns([1, 1, 2])
+    with f_col1:
+        f_type = st.selectbox("Category", ["All", "ddos", "malware", "portscan", "benign"], key="f_type")
+    with f_col2:
+        f_sev = st.selectbox("Severity", ["All", "critical", "high", "medium", "none"], key="f_sev")
+    with f_col3:
+        f_query = st.text_input("Search IP / port", placeholder="Filter by source or destination...", key="f_search")
 
     if not alerts:
-        render_empty_state("No Threats Detected", "Your monitored network is currently clear. No anomalous flows have been flagged.")
+        render_empty_state("No threats detected", "Your monitored network is currently clear.")
     else:
-        # Filter logic
         filtered = []
         for a in alerts:
             lbl = a.get("label", "")
@@ -523,180 +504,129 @@ with tab_alerts:
             dst = str(a.get("dst_ip", ""))
             sp = str(a.get("src_port", ""))
             dp = str(a.get("dst_port", ""))
-            proto = str(a.get("proto", ""))
 
-            if f_label != "ALL" and lbl != f_label:
+            if f_type != "All" and lbl != f_type:
                 continue
-            if f_sev != "ALL" and sev != f_sev:
+            if f_sev != "All" and sev != f_sev:
                 continue
-            if search_query:
-                q = search_query.lower()
-                combined = f"{src} {dst} {sp} {dp} {proto} {lbl}".lower()
-                if q not in combined:
+            if f_query:
+                q = f_query.lower()
+                if q not in f"{src} {dst} {sp} {dp} {lbl}".lower():
                     continue
             filtered.append(a)
 
-        st.markdown(f'<div style="font-size:0.75rem;color:#9AA6B2;margin:0.6rem 0;">Showing {len(filtered):,} incidents</div>', unsafe_allow_html=True)
-
         if not filtered:
-            render_empty_state("No Matching Incidents", "No alert matches your filter criteria.")
+            render_empty_state("No matching incidents", "No alert matches the selected filter criteria.")
         else:
-            for a in reversed(filtered[-60:]):
+            alert_rows = ""
+            for a in reversed(filtered[-50:]):
                 lbl = a.get("label", "benign")
+                cls_text = CLASS_LABELS.get(lbl, lbl.capitalize())
                 sev = a.get("severity", "none")
-                sev_key = sev if sev in ["critical", "high", "medium"] else ("sev-none" if lbl == "benign" else "sev-medium")
-                chip_class = f"sev-{sev}" if sev in ["critical", "high", "medium"] else "sev-none"
+                sev_color = {
+                    "critical": PALETTE["red"],
+                    "high": PALETTE["amber"],
+                    "medium": PALETTE["blue"],
+                    "none": PALETTE["green"]
+                }.get(sev, PALETTE["text_muted"])
+
                 ts = str(a.get("timestamp", ""))[:19].replace("T", " ")
                 rel_time = format_relative_time(ts)
-                src = f"{a.get('src_ip', '?')}:{a.get('src_port', '')}"
-                dst = f"{a.get('dst_ip', '?')}:{a.get('dst_port', '')}"
+                src = f"{a.get('src_ip', '0.0.0.0')}:{a.get('src_port', '')}"
+                dst = f"{a.get('dst_ip', '0.0.0.0')}:{a.get('dst_port', '')}"
                 conf = a.get("confidence", 100.0)
-                proto = str(a.get("proto", "TCP")).upper()
 
-                title_text = {
-                    "ddos": "DDoS High-Rate Flood Attack",
-                    "malware": "Malicious Command & Control Activity",
-                    "portscan": "Port Scan Surveillance Probe",
-                    "benign": "Authorized Normal Flow"
-                }.get(lbl, f"{lbl.upper()} Flow")
+                alert_rows += f"""<tr>
+<td>
+<span class="status-indicator">
+<span class="status-dot" style="background-color:{sev_color};"></span>
+<span style="font-weight:500;">{sev.capitalize()}</span>
+</span>
+</td>
+<td>{cls_text}</td>
+<td class="ip-src">{src}</td>
+<td class="ip-dst">{dst}</td>
+<td style="color:#A7B0BA;">{rel_time}</td>
+<td class="mono-val" style="color:#A7B0BA;">{conf}%</td>
+</tr>"""
 
-                st.markdown(f"""
-                <div class="soc-incident-card">
-                    <div class="soc-incident-left">
-                        <span class="soc-severity-chip {chip_class}">{sev.upper()}</span>
-                        <div>
-                            <div style="font-weight:600;font-size:0.85rem;color:#F5F7FA;">{title_text}</div>
-                            <div class="soc-flow-nodes" style="margin-top:2px;">
-                                <span class="soc-ip-src">{src}</span>
-                                <span class="soc-arrow">→</span>
-                                <span class="soc-ip-dst">{dst}</span>
-                                <span style="color:#6F7A86;">[{proto}]</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="soc-incident-meta">
-                        <span style="color:#35C77A;font-weight:600;">{conf}% confidence</span>
-                        <span style="color:#6F7A86;">·</span>
-                        <span>{rel_time}</span>
-                        <span style="color:#6F7A86;">({ts[11:]})</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+            alerts_table_html = f"""<div class="table-container">
+<table class="data-table">
+<thead>
+<tr>
+<th>Severity</th>
+<th>Threat</th>
+<th>Source</th>
+<th>Destination</th>
+<th>Detected</th>
+<th>Confidence</th>
+</tr>
+</thead>
+<tbody>
+{alert_rows}
+</tbody>
+</table>
+</div>"""
+            st.html(alerts_table_html)
 
 
 # ═════════════════════════════════════════════════════════════
-# TAB 4: AI ASSISTANT
+# TAB 4: SECURITY ASSISTANT
 # ═════════════════════════════════════════════════════════════
 with tab_ai:
-    col_ai_left, col_ai_right = st.columns([2.2, 1])
+    st.html("""<div class="content-section">
+<div class="section-title">Security assistant</div>
+<div class="section-subtitle">Investigate detected activity and understand potential threats.</div>
+</div>""")
 
-    with col_ai_left:
-        st.markdown("""
-        <div class="ai-copilot-container">
-            <div class="soc-card-header">
-                <div>
-                    <div class="soc-card-title">IoT Shield AI Security Assistant</div>
-                    <div class="soc-card-subtitle">Investigate alerts, understand threats, and get remediation guidance.</div>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+    # Suggested Prompts
+    st.markdown('<div style="font-size:0.8125rem;color:#A7B0BA;margin-bottom:0.5rem;">Suggested investigations</div>', unsafe_allow_html=True)
+    p_col1, p_col2 = st.columns(2)
+    suggested = [
+        "Explain latest alert",
+        "Summarize recent traffic",
+        "Review suspicious activity",
+        "Recommend next steps"
+    ]
+    active_prompt = None
+    for i, s in enumerate(suggested):
+        target_col = p_col1 if i % 2 == 0 else p_col2
+        with target_col:
+            if st.button(s, key=f"sug_btn_{i}"):
+                active_prompt = s
 
-        st.markdown('<div style="font-size:0.75rem;font-weight:600;color:#9AA6B2;margin-bottom:0.4rem;">SUGGESTED INVESTIGATIONS</div>', unsafe_allow_html=True)
-        q_cols = st.columns(2)
-        suggested_queries = [
-            "Explain latest threat",
-            "Analyze DDoS activity",
-            "What should I investigate?",
-            "Summarize last 10 alerts"
-        ]
+    user_query = st.text_input(
+        "Analyst query",
+        value=active_prompt or st.session_state.ai_prompt,
+        placeholder="Ask a question about current threats or model reasoning...",
+        key="ai_query_input"
+    )
 
-        active_query = None
-        for idx, sq in enumerate(suggested_queries):
-            with q_cols[idx % 2]:
-                if st.button(f"🔍 {sq}", key=f"sq_btn_{idx}"):
-                    active_query = sq
+    if user_query:
+        st.session_state.ai_prompt = user_query
+        context = ""
+        if alerts:
+            df_ctx = pd.DataFrame(alerts[-25:])
+            summary = df_ctx["label"].value_counts().to_dict()
+            top_src = df_ctx["src_ip"].value_counts().head(3).to_dict() if "src_ip" in df_ctx.columns else {}
+            context = f"Alert summary (last 25 flows): {summary}. Top source IPs: {top_src}. "
 
-        user_input = st.text_input(
-            "Security Analyst Prompt",
-            value=active_query or st.session_state.ai_question,
-            placeholder="e.g. Explain why the latest flow was flagged as DDoS...",
-            key="ai_text_input"
+        prompt = (
+            f"You are a network security analyst reviewing IoT network telemetry. {context}"
+            f"Provide a concise, direct analysis in 2-3 sentences: {user_query}"
         )
 
-        if user_input:
-            st.session_state.ai_question = user_input
-            # Build analytical context from latest telemetry
-            context = ""
-            if alerts:
-                df_ctx = pd.DataFrame(alerts[-30:])
-                summary = df_ctx["label"].value_counts().to_dict()
-                top_src = df_ctx["src_ip"].value_counts().head(3).to_dict() if "src_ip" in df_ctx.columns else {}
-                context = f"Alert summary (last 30 flows): {summary}. Top source IPs: {top_src}. "
+        with st.spinner("Analyzing telemetry..."):
+            answer, provider = ai_assistant.ask_ai(prompt)
 
-            prompt = (
-                f"You are an expert IoT network security analyst. {context}"
-                f"Answer concisely in 3-4 professional sentences: {user_input}"
+        if answer:
+            response_html = f"""<div class="content-section" style="margin-top:1rem;border-left:3px solid #4D8DFF;">
+<div style="font-size:0.75rem;color:#4D8DFF;font-weight:600;margin-bottom:0.4rem;text-transform:uppercase;">Analyst response · {provider}</div>
+<div style="font-size:0.875rem;line-height:1.6;color:#F0F3F6;">{answer}</div>
+</div>"""
+            st.html(response_html)
+        else:
+            st.info(
+                "Assistant in standby mode. To enable live inference on Streamlit Cloud, "
+                "add `GEMINI_API_KEY` or `GROQ_API_KEY` to your Streamlit Cloud Secrets."
             )
-
-            with st.spinner("AI Security Assistant analyzing telemetry vectors..."):
-                answer, provider = ai_assistant.ask_ai(prompt)
-
-            if answer:
-                st.markdown(f"""
-                <div class="ai-card-assistant">
-                    <div class="ai-badge">
-                        <span>✦</span> AI ANALYST · {provider}
-                    </div>
-                    {answer}
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.warning("⚠️ **AI Security Assistant is in standby mode.**")
-                st.info(
-                    "To enable live cloud LLM inference on Streamlit Cloud:\n\n"
-                    "1. Go to your Streamlit Cloud app settings → **Secrets**.\n"
-                    "2. Add your API key:\n"
-                    "   ```toml\n"
-                    "   GEMINI_API_KEY = \"your_gemini_api_key_here\"\n"
-                    "   # or\n"
-                    "   GROQ_API_KEY = \"your_groq_api_key_here\"\n"
-                    "   ```\n\n"
-                    "Locally, you can also run Ollama (`ollama serve`)."
-                )
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with col_ai_right:
-        st.markdown("""
-        <div class="soc-card">
-            <div class="soc-card-header">
-                <div>
-                    <div class="soc-card-title">Telemetry Sensor Status</div>
-                    <div class="soc-card-subtitle">Local sensor and cloud synchronization state</div>
-                </div>
-            </div>
-            <div style="font-size:0.8rem;line-height:2.0;color:#9AA6B2;">
-                <div>Sensor Node: <span style="color:#F5F7FA;font-weight:600;">Windows Scapy Daemon</span></div>
-                <div>Pipeline: <span style="color:#F5F7FA;font-weight:600;">10 Flow Features Extractor</span></div>
-                <div>Models: <span style="color:#35C77A;font-weight:600;">RF + XGBoost Soft-Voting</span></div>
-                <div>Cloud Ingest: <span style="color:#4C8DFF;font-weight:600;">Firebase RTDB Live Stream</span></div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        st.markdown("""
-        <div class="soc-card">
-            <div class="soc-card-header">
-                <div>
-                    <div class="soc-card-title">Target Classification Legend</div>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-        for cls_name, cls_color in CLASS_COLORS.items():
-            st.markdown(f"""
-            <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.45rem;font-size:0.8rem;">
-                <div style="width:9px;height:9px;border-radius:2px;background:{cls_color};"></div>
-                <span style="font-weight:600;color:#F5F7FA;">{cls_name.upper()}</span>
-            </div>
-            """, unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
