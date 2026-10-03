@@ -49,29 +49,36 @@ def ask_ai(prompt, system_instruction="You are an expert IoT network security an
     # 1. Groq (Primary — user's deployed key)
     groq_key = _get_secret("GROQ_API_KEY")
     if groq_key:
-        try:
-            url = "https://api.groq.com/openai/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {groq_key}",
-                "Content-Type": "application/json"
-            }
-            payload = {
-                "model": "llama-3.1-8b-instant",
-                "messages": [
-                    {"role": "system", "content": system_instruction},
-                    {"role": "user", "content": prompt}
-                ],
-                "temperature": 0.2,
-                "max_tokens": 300
-            }
-            resp = requests.post(url, headers=headers, json=payload, timeout=20)
-            if resp.status_code == 200:
-                data = resp.json()
-                text = data["choices"][0]["message"]["content"]
-                return text.strip(), "Groq (Llama 3.1 8B)"
-            return f"[Groq API HTTP {resp.status_code}] {resp.text[:200]}", "Groq"
-        except Exception as e:
-            return f"[Groq connection error: {e}]", "Groq"
+        groq_models = [
+            ("llama-3.3-70b-versatile", "Groq (Llama 3.3 70B)"),
+            ("meta-llama/llama-4-scout-17b-16e-instruct", "Groq (Llama 4 Scout)"),
+        ]
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {groq_key}",
+            "Content-Type": "application/json"
+        }
+        last_error = None
+        for model_id, model_label in groq_models:
+            try:
+                payload = {
+                    "model": model_id,
+                    "messages": [
+                        {"role": "system", "content": system_instruction},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "temperature": 0.2,
+                    "max_tokens": 300
+                }
+                resp = requests.post(url, headers=headers, json=payload, timeout=20)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    text = data["choices"][0]["message"]["content"]
+                    return text.strip(), model_label
+                last_error = f"[Groq API HTTP {resp.status_code}] {resp.text[:200]}"
+            except Exception as e:
+                last_error = f"[Groq connection error: {e}]"
+        return last_error, "Groq"
 
     # 2. Gemini (fallback)
     gemini_key = _get_secret("GEMINI_API_KEY") or _get_secret("GOOGLE_API_KEY")
