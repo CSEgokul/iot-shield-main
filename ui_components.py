@@ -1,6 +1,6 @@
 """
-ui_components.py — Light Theme B2B Security UI Components for IoT Shield
-Matches the approved clean white/light red SaaS dashboard aesthetic.
+ui_components.py — Light SaaS UI Components for IoT Shield
+Faithfully matches the approved IoT Shield mockup and provides a native mobile-first experience.
 """
 
 from textwrap import dedent
@@ -9,79 +9,91 @@ import streamlit as st
 
 
 # ─────────────────────────────────────────────────────────────
-# PALETTE DEFINITIONS (Light Red / White SaaS Design)
+# PALETTE DEFINITIONS (Approved Mockup: Warm Soft Red / White SaaS)
 # ─────────────────────────────────────────────────────────────
 PALETTE = {
     "page_bg": "#FFF8F8",
-    "bg_secondary": "#FFF5F5",
     "card_bg": "#FFFFFF",
     "sidebar_bg": "#FFFFFF",
-    "primary_red": "#E31B23",
-    "dark_red": "#C9141C",
-    "soft_red": "#FDEBED",
-    "text_primary": "#111827",
-    "text_secondary": "#667085",
+    "primary_red": "#D92D20",
+    "dark_red": "#B42318",
+    "soft_red": "#FEE4E2",
+    "soft_red_subtle": "#FEF3F2",
+    "text_primary": "#101828",
+    "text_secondary": "#475467",
     "text_muted": "#98A2B3",
-    "border": "#E5E7EB",
-    "border_subtle": "#F3F4F6",
-    "success_green": "#16A34A",
+    "border": "#EAECF0",
+    "border_subtle": "#F2F4F7",
+    "success_green": "#12B76A",
     "soft_green": "#ECFDF3",
-    "info_blue": "#2563EB",
-    "soft_blue": "#EFF6FF",
-    "warning_amber": "#F59E0B",
-    "soft_amber": "#FFF7E6",
+    "info_blue": "#2E90FA",
+    "soft_blue": "#EFF8FF",
+    "warning_amber": "#F79009",
+    "soft_amber": "#FEF0C7",
 }
 
 CLASS_COLORS = {
-    "benign": PALETTE["success_green"],
-    "portscan": PALETTE["info_blue"],
-    "ddos": PALETTE["primary_red"],
-    "malware": PALETTE["warning_amber"],
+    "benign": PALETTE["primary_red"],   # Matches mockup donut (Benign is prominent red)
+    "portscan": "#F97066",              # Light red/salmon in mockup
+    "ddos": "#F79009",                  # Orange in mockup
+    "malware": "#98A2B3",               # Muted slate in mockup
 }
 
 CLASS_LABELS = {
     "benign": "Benign",
-    "portscan": "Port scan",
+    "portscan": "Port Scan",
     "ddos": "DDoS",
     "malware": "Malware",
 }
 
 
 def inject_global_styles():
-    """Injects light SaaS styling, typography, cards, tables, and sidebar overrides."""
+    """Injects responsive light SaaS styling matching the approved mockup."""
     css = dedent("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
     /* ── App Canvas ── */
     html, body, [data-testid="stApp"], [data-testid="stAppViewContainer"] {
-        background: linear-gradient(180deg, #FFF8F8 0%, #FFFFFF 45%, #F8FAFC 100%) !important;
+        background: linear-gradient(180deg, #FFF8F8 0%, #FFFFFF 40%, #F8FAFC 100%) !important;
         background-color: #FFF8F8 !important;
-        color: #111827 !important;
+        color: #101828 !important;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif !important;
         -webkit-font-smoothing: antialiased;
+        overflow-x: hidden !important;
     }
 
-    /* ── Streamlit Chrome Adjustments ── */
-    #MainMenu, footer, header[data-testid="stHeader"] {
+    /* ── Streamlit Header / Hamburger Styling ── */
+    #MainMenu, footer {
         visibility: hidden !important;
         height: 0 !important;
+    }
+    header[data-testid="stHeader"] {
+        background: transparent !important;
+    }
+    /* Mobile sidebar toggle button */
+    [data-testid="stSidebarCollapsedControl"] {
+        display: block !important;
+        color: #D92D20 !important;
+        z-index: 9999 !important;
     }
 
     .block-container {
         max-width: 1400px !important;
-        padding-top: 1.5rem !important;
+        padding-top: 1.25rem !important;
         padding-bottom: 3.5rem !important;
         padding-left: 2rem !important;
         padding-right: 2rem !important;
         margin: 0 auto !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
     }
 
-    /* ── Sidebar Overrides ── */
+    /* ── Sidebar Overrides (Matches Mockup) ── */
     [data-testid="stSidebar"] {
         background-color: #FFFFFF !important;
-        border-right: 1px solid #E5E7EB !important;
-        box-shadow: 1px 0 3px rgba(0, 0, 0, 0.02) !important;
+        border-right: 1px solid #EAECF0 !important;
+        box-shadow: 1px 0 3px rgba(16, 24, 40, 0.02) !important;
     }
     [data-testid="stSidebar"] > div:first-child {
         padding-top: 1.25rem !important;
@@ -89,65 +101,64 @@ def inject_global_styles():
         padding-right: 1.25rem !important;
     }
     [data-testid="stSidebar"] .stRadio > div {
-        gap: 0.25rem !important;
+        gap: 0.35rem !important;
     }
     [data-testid="stSidebar"] .stRadio label {
         font-size: 0.875rem !important;
         font-weight: 500 !important;
-        color: #667085 !important;
-        padding: 0.5rem 0.75rem !important;
+        color: #475467 !important;
+        padding: 0.55rem 0.85rem !important;
         border-radius: 8px !important;
         cursor: pointer !important;
         transition: all 0.15s ease !important;
     }
     [data-testid="stSidebar"] .stRadio label:hover {
-        background-color: #FFF5F5 !important;
-        color: #E31B23 !important;
+        background-color: #FEF3F2 !important;
+        color: #D92D20 !important;
     }
 
-    /* ── Brand Logo Header ── */
-    .sidebar-brand {
+    /* ── Mockup Brand Logo ── */
+    .mockup-brand {
         display: flex;
         align-items: center;
         gap: 0.75rem;
         padding-bottom: 1.25rem;
         margin-bottom: 1rem;
-        border-bottom: 1px solid #E5E7EB;
+        border-bottom: 1px solid #EAECF0;
     }
-    .brand-icon-box {
-        width: 38px;
-        height: 38px;
-        background: #FDEBED;
-        border: 1px solid #FECDCA;
-        border-radius: 9px;
+    .mockup-brand-logo {
+        width: 36px;
+        height: 36px;
+        background: #D92D20;
+        border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #E31B23;
-        font-weight: 700;
-        font-size: 1.1rem;
+        color: #FFFFFF;
+        font-size: 1.15rem;
         flex-shrink: 0;
+        box-shadow: 0 2px 4px rgba(217, 45, 32, 0.2);
     }
-    .brand-name {
+    .mockup-brand-name {
         font-size: 1.125rem;
         font-weight: 700;
-        color: #111827;
-        line-height: 1.2;
+        color: #101828;
         letter-spacing: -0.02em;
+        line-height: 1.15;
     }
-    .brand-sub {
-        font-size: 0.75rem;
+    .mockup-brand-sub {
+        font-size: 0.72rem;
         color: #667085;
         margin-top: 1px;
     }
 
-    /* ── Sidebar System Status Footer ── */
+    /* ── Mockup Sidebar Status & Profile ── */
     .sidebar-status-box {
-        background: #FFF8F8;
-        border: 1px solid #FDEBED;
+        background: #FFFDFD;
+        border: 1px solid #FEE4E2;
         border-radius: 10px;
         padding: 0.9rem 1rem;
-        margin-top: 1.5rem;
+        margin-top: 1.25rem;
         font-size: 0.8125rem;
         line-height: 1.7;
     }
@@ -156,129 +167,199 @@ def inject_global_styles():
         font-weight: 600;
         color: #98A2B3;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 0.4rem;
+        letter-spacing: 0.04em;
+        margin-bottom: 0.35rem;
     }
     .status-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        color: #667085;
+        color: #475467;
     }
     .status-row-val {
         font-weight: 500;
-        color: #111827;
+        color: #101828;
         display: flex;
         align-items: center;
         gap: 0.35rem;
     }
 
-    /* ── Typography & Page Title ── */
-    .page-title {
-        font-size: 2rem;
-        font-weight: 700;
-        color: #111827;
-        letter-spacing: -0.025em;
-        line-height: 1.2;
-    }
-    .page-subtitle {
-        font-size: 0.9rem;
-        color: #667085;
-        margin-top: 0.25rem;
-        margin-bottom: 1.5rem;
-    }
-
-    /* ── Clean White Cards ── */
-    .saas-card {
-        background: #FFFFFF;
-        border: 1px solid #E5E7EB;
-        border-radius: 12px;
-        padding: 1.25rem 1.4rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
-        margin-bottom: 1.25rem;
-    }
-    .saas-card-title {
-        font-size: 1rem;
-        font-weight: 600;
-        color: #111827;
-        margin-bottom: 0.2rem;
-    }
-    .saas-card-sub {
-        font-size: 0.8125rem;
-        color: #667085;
-        margin-bottom: 1rem;
-    }
-
-    /* ── KPI Cards Grid ── */
-    .kpi-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 1.15rem;
-        margin-bottom: 1.5rem;
-    }
-    .kpi-card {
-        background: #FFFFFF;
-        border: 1px solid #E5E7EB;
-        border-radius: 12px;
-        padding: 1.25rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        min-height: 124px;
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }
-    .kpi-card:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-    }
-    .kpi-top {
+    .sidebar-profile {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        margin-bottom: 0.5rem;
+        gap: 0.75rem;
+        padding-top: 1.25rem;
+        margin-top: 1.25rem;
+        border-top: 1px solid #EAECF0;
     }
-    .kpi-label {
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: #667085;
-    }
-    .kpi-icon-circle {
-        width: 32px;
-        height: 32px;
+    .profile-avatar {
+        width: 36px;
+        height: 36px;
+        background: #EAECF0;
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 0.875rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #344054;
         flex-shrink: 0;
     }
-    .icon-red   { background: #FDEBED; color: #E31B23; }
-    .icon-green { background: #ECFDF3; color: #16A34A; }
-    .icon-blue  { background: #EFF6FF; color: #2563EB; }
-    .icon-amber { background: #FFF7E6; color: #F59E0B; }
+    .profile-info {
+        line-height: 1.25;
+    }
+    .profile-name {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: #101828;
+    }
+    .profile-role {
+        font-size: 0.72rem;
+        color: #667085;
+    }
 
+    /* ── Page Header & Titles ── */
+    .page-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #101828;
+        letter-spacing: -0.025em;
+        line-height: 1.2;
+    }
+    .page-subtitle {
+        font-size: 0.875rem;
+        color: #475467;
+        margin-top: 0.25rem;
+        margin-bottom: 1.25rem;
+    }
+
+    /* ── White Cards with Red Vertical Stripe Accent ── */
+    .saas-card {
+        background: #FFFFFF;
+        border: 1px solid #EAECF0;
+        border-radius: 12px;
+        padding: 1.25rem 1.4rem;
+        box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);
+        margin-bottom: 1.25rem;
+        box-sizing: border-box;
+    }
+    .section-header-wrap {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin-bottom: 0.85rem;
+    }
+    .red-accent-bar {
+        width: 3.5px;
+        height: 18px;
+        background: #D92D20;
+        border-radius: 2px;
+        flex-shrink: 0;
+    }
+    .saas-card-title {
+        font-size: 0.9375rem;
+        font-weight: 700;
+        color: #101828;
+        line-height: 1.2;
+    }
+    .saas-card-sub {
+        font-size: 0.78rem;
+        color: #475467;
+        margin-top: 2px;
+    }
+
+    /* ── KPI Cards Grid (Matches Mockup with Mini Sparklines) ── */
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .kpi-card {
+        background: #FFFFFF;
+        border: 1px solid #EAECF0;
+        border-radius: 12px;
+        padding: 1.15rem 1.25rem;
+        box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 122px;
+        box-sizing: border-box;
+        position: relative;
+        overflow: hidden;
+    }
+    .kpi-top {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.4rem;
+    }
+    .kpi-icon-circle {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.95rem;
+        flex-shrink: 0;
+    }
+    .icon-red   { background: #FEE4E2; color: #D92D20; }
+    .icon-green { background: #ECFDF3; color: #12B76A; }
+    .icon-blue  { background: #EFF8FF; color: #2E90FA; }
+
+    .kpi-label {
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: #475467;
+    }
     .kpi-value {
         font-size: 2rem;
         font-weight: 700;
-        color: #111827;
-        letter-spacing: -0.025em;
+        color: #101828;
+        letter-spacing: -0.03em;
         line-height: 1.1;
-        margin-bottom: 0.35rem;
+        margin-bottom: 0.25rem;
+        white-space: nowrap;
     }
-    .kpi-footer {
-        font-size: 0.78rem;
-        color: #98A2B3;
+    .kpi-bottom-row {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        margin-top: auto;
+    }
+    .kpi-trend {
+        font-size: 0.75rem;
+        color: #12B76A;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    .kpi-trend.neutral { color: #98A2B3; }
+    .kpi-trend-sub {
+        font-size: 0.72rem;
+        color: #667085;
+        font-weight: 400;
+        margin-left: 0.2rem;
+    }
+    .kpi-sparkline {
+        width: 68px;
+        height: 24px;
+        flex-shrink: 0;
     }
 
-    /* ── Threat Breakdown Summary Table ── */
+    /* ── Mockup Donut Breakdown Summary ── */
     .breakdown-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0.75rem 0;
-        border-bottom: 1px solid #F3F4F6;
-        font-size: 0.875rem;
+        padding: 0.55rem 0;
+        border-bottom: 1px solid #F2F4F7;
+        font-size: 0.8125rem;
     }
     .breakdown-row:last-child {
         border-bottom: none;
@@ -288,35 +369,36 @@ def inject_global_styles():
         align-items: center;
         gap: 0.6rem;
         font-weight: 500;
-        color: #111827;
+        color: #344054;
     }
     .breakdown-item-right {
         display: flex;
         align-items: center;
         gap: 1.5rem;
-        font-size: 0.8125rem;
     }
     .breakdown-val {
         font-weight: 600;
-        color: #111827;
+        color: #101828;
         font-family: 'JetBrains Mono', monospace;
     }
     .breakdown-pct {
-        color: #667085;
+        color: #475467;
         font-family: 'JetBrains Mono', monospace;
-        min-width: 44px;
+        min-width: 40px;
         text-align: right;
     }
 
-    /* ── Data Tables ── */
+    /* ── Desktop Table & Mobile Incident List ── */
     .table-card-wrapper {
         background: #FFFFFF;
-        border: 1px solid #E5E7EB;
+        border: 1px solid #EAECF0;
         border-radius: 12px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+        box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
-        margin-bottom: 1.5rem;
+        margin-bottom: 1.25rem;
+        width: 100%;
+        box-sizing: border-box;
     }
     .saas-table {
         width: 100%;
@@ -326,19 +408,19 @@ def inject_global_styles():
     }
     .saas-table th {
         background-color: #F9FAFB;
-        color: #667085;
+        color: #475467;
         font-weight: 600;
-        font-size: 0.75rem;
+        font-size: 0.72rem;
         text-transform: uppercase;
         letter-spacing: 0.04em;
-        padding: 0.75rem 1rem;
-        border-bottom: 1px solid #E5E7EB;
+        padding: 0.7rem 0.9rem;
+        border-bottom: 1px solid #EAECF0;
         white-space: nowrap;
     }
     .saas-table td {
-        padding: 0.75rem 1rem;
-        border-bottom: 1px solid #F3F4F6;
-        color: #111827;
+        padding: 0.65rem 0.9rem;
+        border-bottom: 1px solid #F2F4F7;
+        color: #101828;
         white-space: nowrap;
     }
     .saas-table tr:hover td {
@@ -352,46 +434,41 @@ def inject_global_styles():
         font-size: 0.8125rem;
     }
     .src-cell {
-        color: #2563EB;
+        color: #101828;
         font-family: 'JetBrains Mono', monospace;
     }
     .dst-cell {
-        color: #111827;
+        color: #475467;
         font-family: 'JetBrains Mono', monospace;
     }
 
-    /* ── Status Chips / Badges ── */
+    /* Status Badges */
     .chip {
         display: inline-flex;
         align-items: center;
         gap: 0.35rem;
-        padding: 0.22rem 0.55rem;
+        padding: 0.2rem 0.5rem;
         border-radius: 6px;
         font-size: 0.75rem;
         font-weight: 600;
     }
     .chip-benign {
         background: #ECFDF3;
-        color: #16A34A;
-        border: 1px solid #D1FADF;
+        color: #027A48;
     }
     .chip-ddos {
-        background: #FDEBED;
-        color: #E31B23;
-        border: 1px solid #FECDCA;
+        background: #FEE4E2;
+        color: #D92D20;
     }
     .chip-portscan {
-        background: #EFF6FF;
-        color: #2563EB;
-        border: 1px solid #D1E9FF;
+        background: #EFF8FF;
+        color: #175CD3;
     }
     .chip-malware {
-        background: #FFF7E6;
-        color: #D97706;
-        border: 1px solid #FEDF89;
+        background: #FEF0C7;
+        color: #B54708;
     }
 
-    /* ── Status Indicators ── */
     .dot {
         width: 7px;
         height: 7px;
@@ -399,75 +476,179 @@ def inject_global_styles():
         display: inline-block;
     }
 
-    /* ── Buttons & Inputs ── */
+    /* ── Mobile Incident Cards (Shown on narrow viewports) ── */
+    .mobile-cards-list {
+        display: none;
+    }
+    .mobile-flow-card {
+        background: #FFFFFF;
+        border: 1px solid #EAECF0;
+        border-radius: 10px;
+        padding: 0.9rem 1rem;
+        margin-bottom: 0.65rem;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03);
+    }
+    .flow-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.45rem;
+    }
+    .flow-card-time {
+        font-size: 0.78rem;
+        color: #667085;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .flow-card-row {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.8125rem;
+        font-family: 'JetBrains Mono', monospace;
+        margin: 0.25rem 0;
+        word-break: break-all;
+    }
+    .flow-label {
+        font-size: 0.72rem;
+        color: #98A2B3;
+        text-transform: uppercase;
+        font-family: 'Inter', sans-serif;
+        font-weight: 600;
+        width: 48px;
+        flex-shrink: 0;
+    }
+    .flow-card-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 0.5rem;
+        padding-top: 0.4rem;
+        border-top: 1px solid #F2F4F7;
+        font-size: 0.75rem;
+        color: #667085;
+    }
+
+    /* ── Solid Red Export Button Matching Mockup ── */
+    .btn-red-export {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        background: #D92D20 !important;
+        color: #FFFFFF !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-size: 0.875rem !important;
+        font-weight: 600 !important;
+        padding: 0.55rem 1.1rem !important;
+        cursor: pointer !important;
+        box-shadow: 0 1px 2px rgba(217, 45, 32, 0.15) !important;
+        transition: background-color 0.15s ease !important;
+        text-decoration: none !important;
+    }
+    .btn-red-export:hover {
+        background: #B42318 !important;
+        color: #FFFFFF !important;
+    }
+
+    /* ── Form Controls & Touch Targets ── */
     .stButton > button {
         background: #FFFFFF !important;
-        color: #111827 !important;
-        border: 1px solid #D1D5DB !important;
+        color: #344054 !important;
+        border: 1px solid #D0D5DD !important;
         border-radius: 8px !important;
         font-family: 'Inter', sans-serif !important;
         font-size: 0.8125rem !important;
         font-weight: 500 !important;
-        height: 38px !important;
+        min-height: 42px !important;
         padding: 0 1rem !important;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05) !important;
         transition: all 0.15s ease !important;
     }
     .stButton > button:hover {
-        background: #FFF5F5 !important;
-        border-color: #E31B23 !important;
-        color: #E31B23 !important;
+        background: #FEF3F2 !important;
+        border-color: #D92D20 !important;
+        color: #D92D20 !important;
     }
     .stSelectbox > div > div, .stTextInput > div > div > input {
         background: #FFFFFF !important;
-        border: 1px solid #D1D5DB !important;
+        border: 1px solid #D0D5DD !important;
         border-radius: 8px !important;
-        color: #111827 !important;
-        font-size: 0.8125rem !important;
+        color: #101828 !important;
+        font-size: 0.875rem !important;
+        min-height: 42px !important;
     }
     .stSelectbox > div > div:hover, .stTextInput > div > div > input:focus {
-        border-color: #E31B23 !important;
-        box-shadow: 0 0 0 1px #E31B23 !important;
+        border-color: #D92D20 !important;
+        box-shadow: 0 0 0 1px #D92D20 !important;
     }
 
     /* ── Empty State ── */
     .empty-box {
         text-align: center;
-        padding: 3.5rem 1.5rem;
+        padding: 3rem 1.5rem;
         background: #FFFFFF;
-        border: 1px dashed #E5E7EB;
+        border: 1px dashed #EAECF0;
         border-radius: 12px;
         margin: 1.25rem 0;
     }
     .empty-title {
-        font-size: 1rem;
+        font-size: 0.95rem;
         font-weight: 600;
-        color: #111827;
-        margin-bottom: 0.35rem;
+        color: #101828;
+        margin-bottom: 0.25rem;
     }
     .empty-desc {
         font-size: 0.8125rem;
-        color: #667085;
+        color: #475467;
     }
 
-    /* ── Responsive Rules ── */
+    /* ── MOBILE-FIRST RESPONSIVE BREAKPOINTS ── */
     @media (max-width: 1024px) {
         .kpi-grid {
             grid-template-columns: repeat(2, 1fr);
         }
     }
+
     @media (max-width: 768px) {
         .block-container {
-            padding-left: 1rem !important;
-            padding-right: 1rem !important;
-            padding-top: 1rem !important;
+            padding-left: 14px !important;
+            padding-right: 14px !important;
+            padding-top: 0.85rem !important;
+            max-width: 100% !important;
         }
         .page-title {
             font-size: 1.5rem;
         }
         .kpi-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+        }
+        .kpi-card {
+            padding: 0.95rem 1rem;
+            min-height: 110px;
+        }
+        .kpi-value {
+            font-size: 1.6rem;
+        }
+        .kpi-sparkline {
+            display: none;
+        }
+        /* Switch from table to mobile cards on phone */
+        .desktop-table-wrapper {
+            display: none;
+        }
+        .mobile-cards-list {
+            display: block;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .kpi-grid {
             grid-template-columns: 1fr;
-            gap: 0.85rem;
+        }
+        .mockup-brand-name {
+            font-size: 1rem;
         }
     }
     </style>
@@ -500,13 +681,13 @@ def format_relative_time(raw_ts: str) -> str:
 
 
 def render_sidebar_header():
-    """Renders the top branding inside the sidebar."""
+    """Renders the top branding inside the sidebar matching the mockup."""
     html = dedent("""
-    <div class="sidebar-brand">
-        <div class="brand-icon-box">🛡</div>
+    <div class="mockup-brand">
+        <div class="mockup-brand-logo">🛡</div>
         <div>
-            <div class="brand-name">IoT Shield</div>
-            <div class="brand-sub">Network Threat Intelligence</div>
+            <div class="mockup-brand-name">IoT Shield</div>
+            <div class="mockup-brand-sub">Network Threat Intelligence</div>
         </div>
     </div>
     """).strip()
@@ -514,59 +695,101 @@ def render_sidebar_header():
 
 
 def render_sidebar_status(is_detector_live: bool, data_source: str, last_ts: str):
-    """Renders the real system status card at the bottom of the sidebar."""
+    """Renders the real system status card and user profile at the bottom of the sidebar."""
     det_dot = PALETTE["success_green"] if is_detector_live else PALETTE["warning_amber"]
-    det_text = "Online" if is_detector_live else "Offline"
+    det_text = "Detector Online" if is_detector_live else "Detector Offline"
 
     fb_dot = PALETTE["success_green"] if data_source.startswith("Firebase") else PALETTE["warning_amber"]
-    fb_text = "Connected" if data_source.startswith("Firebase") else "Local cache"
+    fb_text = "Firebase Connected" if data_source.startswith("Firebase") else "Local Cache"
 
     time_ago = format_relative_time(last_ts)
 
     html = dedent(f"""
     <div class="sidebar-status-box">
-        <div class="sidebar-status-title">System Status</div>
-        <div class="status-row">
-            <span>Detector</span>
-            <span class="status-row-val">
-                <span class="dot" style="background:{det_dot};"></span>
-                {det_text}
-            </span>
-        </div>
-        <div class="status-row">
-            <span>Firebase</span>
-            <span class="status-row-val">
+        <div style="margin-bottom:0.45rem;">
+            <span class="status-row-val" style="font-size:0.8125rem;">
                 <span class="dot" style="background:{fb_dot};"></span>
                 {fb_text}
             </span>
+            <div style="font-size:0.72rem;color:#667085;margin-left:14px;">Live sync active</div>
         </div>
-        <div class="status-row">
-            <span>Last telemetry</span>
-            <span class="status-row-val">{time_ago}</span>
+        <div style="margin-bottom:0.45rem;">
+            <span class="status-row-val" style="font-size:0.8125rem;">
+                <span class="dot" style="background:{det_dot};"></span>
+                {det_text}
+            </span>
+            <div style="font-size:0.72rem;color:#667085;margin-left:14px;">Last telemetry: {time_ago}</div>
         </div>
-        <div class="status-row">
-            <span>Model</span>
-            <span class="status-row-val">RF + XGBoost</span>
+        <div class="status-row" style="margin-top:0.45rem;border-top:1px solid #FEE4E2;padding-top:0.4rem;font-size:0.75rem;">
+            <span>Model:</span>
+            <span style="font-weight:600;color:#101828;">RF + XGBoost</span>
         </div>
-        <div class="status-row">
-            <span>Interface</span>
-            <span class="status-row-val">Monitored LAN</span>
+        <div class="status-row" style="font-size:0.75rem;">
+            <span>Interface:</span>
+            <span style="font-weight:600;color:#101828;">Wi-Fi</span>
+        </div>
+    </div>
+    <div class="sidebar-profile">
+        <div class="profile-avatar">VR</div>
+        <div class="profile-info">
+            <div class="profile-name">Vardhan Reddy</div>
+            <div class="profile-role">Administrator</div>
         </div>
     </div>
     """).strip()
     st.html(html)
 
 
-def render_kpi_card(label: str, value: str, footer: str, icon_symbol: str, icon_class: str):
-    """Renders a single clean white KPI metric card."""
+def get_sparkline_svg(color_stroke: str, curve_type: str = "up") -> str:
+    """Returns a clean lightweight inline SVG sparkline matching the mockup."""
+    if curve_type == "up":
+        # Upward trending curve
+        return f"""<svg class="kpi-sparkline" viewBox="0 0 68 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M2 20C14 18 20 14 30 15C40 16 48 8 66 3" stroke="{color_stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>"""
+    elif curve_type == "flat":
+        # Neutral flat wave
+        return f"""<svg class="kpi-sparkline" viewBox="0 0 68 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M2 13C18 12 32 14 48 13C56 12 62 13 66 13" stroke="{color_stroke}" stroke-width="2" stroke-linecap="round"/>
+        </svg>"""
+    else:
+        # Dynamic red curve matching mockup Card 1
+        return f"""<svg class="kpi-sparkline" viewBox="0 0 68 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M2 21C12 20 22 17 32 18C42 19 50 11 66 5" stroke="{color_stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>"""
+
+
+def render_kpi_card(label: str, value: str, trend_text: str, trend_sub: str, icon_symbol: str, icon_class: str, spark_color: str, spark_type: str = "up") -> str:
+    """Renders a single clean white KPI metric card matching the approved mockup."""
+    sparkline_svg = get_sparkline_svg(spark_color, spark_type)
+    trend_class = "neutral" if trend_text.startswith("•") else ""
     return dedent(f"""
     <div class="kpi-card">
         <div class="kpi-top">
-            <span class="kpi-label">{label}</span>
             <div class="kpi-icon-circle {icon_class}">{icon_symbol}</div>
+            <span class="kpi-label">{label}</span>
         </div>
         <div class="kpi-value">{value}</div>
-        <div class="kpi-footer">{footer}</div>
+        <div class="kpi-bottom-row">
+            <div class="kpi-trend {trend_class}">
+                {trend_text}
+                <span class="kpi-trend-sub">{trend_sub}</span>
+            </div>
+            {sparkline_svg}
+        </div>
+    </div>
+    """).strip()
+
+
+def render_section_header(title: str, subtitle: str) -> str:
+    """Renders a card section title with the red accent bar matching the mockup."""
+    return dedent(f"""
+    <div class="section-header-wrap">
+        <div class="red-accent-bar"></div>
+        <div>
+            <div class="saas-card-title">{title}</div>
+            <div class="saas-card-sub">{subtitle}</div>
+        </div>
     </div>
     """).strip()
 
