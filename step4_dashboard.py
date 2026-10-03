@@ -234,6 +234,19 @@ with st.sidebar:
         model_name=f"RF + XGBoost ({engine_status})"
     )
 
+# ─────────────────────────────────────────────────────────────
+# STATIC BRANDING HEADER (Top of Main Content)
+# ─────────────────────────────────────────────────────────────
+st.html("""
+<div class="mockup-brand" style="border-bottom:none;margin-bottom:0.5rem;padding-bottom:0.5rem;">
+    <div class="mockup-brand-logo">🛡</div>
+    <div>
+        <div class="mockup-brand-name">IoT Shield</div>
+        <div class="mockup-brand-sub">Network Threat Intelligence</div>
+    </div>
+</div>
+""")
+
 # ═════════════════════════════════════════════════════════════
 # PAGE: OVERVIEW
 # ═════════════════════════════════════════════════════════════
