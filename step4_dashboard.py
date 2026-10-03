@@ -235,18 +235,6 @@ with st.sidebar:
     )
 
 # ─────────────────────────────────────────────────────────────
-# REAL-TIME SYSTEM STATUS BANNER (Desktop & Mobile)
-# ─────────────────────────────────────────────────────────────
-render_status_banner(
-    detector_online=detector_online,
-    mode_str=active_mode,
-    fb_connected=fb_connected,
-    capture_active=capture_active if detector_online else False,
-    last_packet_ago=last_packet_ago,
-    sensor_id=sensor_id
-)
-
-# ─────────────────────────────────────────────────────────────
 # TOP HEADER ROW (Matches Mockup)
 # ─────────────────────────────────────────────────────────────
 th_col1, th_col2, th_col3 = st.columns([3, 1.4, 0.6])
@@ -291,6 +279,76 @@ if selected_nav == "Overview":
             mime="text/csv",
             key="btn_export_report"
         )
+
+    # ── SYSTEM STATUS CARD DISPLAYED ON TOP ──────────────────────
+    det_dot = PALETTE["success_green"] if detector_online else (PALETTE["warning_amber"] if detector_stale else "#98A2B3")
+    det_text = "Online" if detector_online else ("Stale" if detector_stale else "Offline")
+    fb_dot = PALETTE["success_green"] if fb_connected else PALETTE["warning_amber"]
+    fb_text = "Connected" if fb_connected else "Local cache"
+
+    system_status_top_html = dedent(f"""
+    <div class="saas-card" style="margin-bottom:1.25rem;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.65rem;">
+            {render_section_header("System Status", "Real-time detector and synchronizer health")}
+            <span style="font-size:0.8125rem;font-weight:600;color:{det_dot};display:flex;align-items:center;gap:0.35rem;">
+                <span class="dot" style="background:{det_dot};"></span> {det_text}
+            </span>
+        </div>
+        <div class="system-status-grid">
+            <div class="status-row">
+                <span style="display:flex;align-items:center;gap:0.5rem;color:#475467;">
+                    <span>💻</span> Detector
+                </span>
+                <span class="status-row-val" style="color:{det_dot};font-weight:600;">
+                    <span class="dot" style="background:{det_dot};"></span>
+                    {det_text}
+                </span>
+            </div>
+            <div class="status-row">
+                <span style="display:flex;align-items:center;gap:0.5rem;color:#475467;">
+                    <span>🔄</span> Mode
+                </span>
+                <span class="status-row-val" style="color:#D92D20;font-weight:600;">
+                    {active_mode.capitalize()}
+                </span>
+            </div>
+            <div class="status-row">
+                <span style="display:flex;align-items:center;gap:0.5rem;color:#475467;">
+                    <span>☁️</span> Firebase
+                </span>
+                <span class="status-row-val" style="color:{fb_dot};font-weight:600;">
+                    <span class="dot" style="background:{fb_dot};"></span>
+                    {fb_text}
+                </span>
+            </div>
+            <div class="status-row">
+                <span style="display:flex;align-items:center;gap:0.5rem;color:#475467;">
+                    <span>🕒</span> Last activity
+                </span>
+                <span class="status-row-val" style="color:#101828;">{last_packet_ago}</span>
+            </div>
+            <div class="status-row">
+                <span style="display:flex;align-items:center;gap:0.5rem;color:#475467;">
+                    <span>⚙️</span> Detection model
+                </span>
+                <span class="status-row-val" style="color:#101828;font-weight:600;">RF + XGBoost ({engine_status})</span>
+            </div>
+            <div class="status-row">
+                <span style="display:flex;align-items:center;gap:0.5rem;color:#475467;">
+                    <span>📶</span> Interface
+                </span>
+                <span class="status-row-val" style="color:#101828;font-weight:600;">{interface_name}</span>
+            </div>
+            <div class="status-row">
+                <span style="display:flex;align-items:center;gap:0.5rem;color:#475467;">
+                    <span>🏷</span> Sensor ID
+                </span>
+                <span class="status-row-val" style="color:#475467;font-family:'JetBrains Mono',monospace;">{sensor_id}</span>
+            </div>
+        </div>
+    </div>
+    """).strip()
+    st.html(system_status_top_html)
 
     # 1. Top KPI Row (4 Cards Matching Mockup with Sparklines)
     threat_rate = (threats_count / total_flows * 100) if total_flows > 0 else 0.0
@@ -505,55 +563,52 @@ if selected_nav == "Overview":
         """).strip()
         st.html(breakdown_html)
 
-    # 3. Bottom Row: Recent Network Activity + System Status (Matches Mockup)
-    br_col1, br_col2 = st.columns([1.7, 1])
-
-    with br_col1:
-        st.html(f"""
-        <div class="saas-card" style="margin-bottom:0.5rem;">
-            <div style="display:flex;align-items:center;justify-content:space-between;">
-                {render_section_header("Recent Network Activity", "Latest 25 flows analyzed by IoT Shield")}
-                <span style="font-size:0.8125rem;color:#475467;font-weight:600;cursor:pointer;">View All &gt;</span>
-            </div>
+    # 3. Bottom Section: Recent Network Activity (Full Width)
+    st.html(f"""
+    <div class="saas-card" style="margin-bottom:0.5rem;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+            {render_section_header("Recent Network Activity", "Latest 25 flows analyzed by IoT Shield")}
+            <span style="font-size:0.8125rem;color:#475467;font-weight:600;cursor:pointer;">View All &gt;</span>
         </div>
-        """)
+    </div>
+    """)
 
-        # Fallback dummy sample flows if detector hasn't pushed yet
-        sample_alerts = alerts if alerts else [
-            {"timestamp": datetime.now().strftime("%Y-%m-%dT10:43:19"), "src_ip": "10.95.39.202", "src_port": "61769", "dst_ip": "104.46.162.224", "dst_port": "443", "proto": "TCP", "label": "benign", "confidence": 55.2},
-            {"timestamp": datetime.now().strftime("%Y-%m-%dT10:42:55"), "src_ip": "192.168.1.14", "src_port": "54012", "dst_ip": "8.8.8.8", "dst_port": "53", "proto": "UDP", "label": "benign", "confidence": 98.1},
-            {"timestamp": datetime.now().strftime("%Y-%m-%dT10:42:31"), "src_ip": "203.0.113.42", "src_port": "443", "dst_ip": "172.16.0.18", "dst_port": "443", "proto": "TCP", "label": "benign", "confidence": 87.6},
-            {"timestamp": datetime.now().strftime("%Y-%m-%dT10:41:05"), "src_ip": "192.168.1.10", "src_port": "49821", "dst_ip": "142.250.72.14", "dst_port": "443", "proto": "TCP", "label": "benign", "confidence": 91.4},
-            {"timestamp": datetime.now().strftime("%Y-%m-%dT10:39:22"), "src_ip": "198.51.100.23", "src_port": "80", "dst_ip": "172.217.164.206", "dst_port": "80", "proto": "TCP", "label": "benign", "confidence": 88.7},
+    # Fallback dummy sample flows if detector hasn't pushed yet
+    sample_alerts = alerts if alerts else [
+        {"timestamp": datetime.now().strftime("%Y-%m-%dT10:43:19"), "src_ip": "10.95.39.202", "src_port": "61769", "dst_ip": "104.46.162.224", "dst_port": "443", "proto": "TCP", "label": "benign", "confidence": 55.2},
+        {"timestamp": datetime.now().strftime("%Y-%m-%dT10:42:55"), "src_ip": "192.168.1.14", "src_port": "54012", "dst_ip": "8.8.8.8", "dst_port": "53", "proto": "UDP", "label": "benign", "confidence": 98.1},
+        {"timestamp": datetime.now().strftime("%Y-%m-%dT10:42:31"), "src_ip": "203.0.113.42", "src_port": "443", "dst_ip": "172.16.0.18", "dst_port": "443", "proto": "TCP", "label": "benign", "confidence": 87.6},
+        {"timestamp": datetime.now().strftime("%Y-%m-%dT10:41:05"), "src_ip": "192.168.1.10", "src_port": "49821", "dst_ip": "142.250.72.14", "dst_port": "443", "proto": "TCP", "label": "benign", "confidence": 91.4},
+        {"timestamp": datetime.now().strftime("%Y-%m-%dT10:39:22"), "src_ip": "198.51.100.23", "src_port": "80", "dst_ip": "172.217.164.206", "dst_port": "80", "proto": "TCP", "label": "benign", "confidence": 88.7},
+    ]
+
+    # Filter if search keyword entered
+    display_alerts = sample_alerts
+    if search_keyword:
+        kw = search_keyword.lower()
+        display_alerts = [
+            a for a in sample_alerts
+            if kw in f"{a.get('src_ip','')} {a.get('dst_ip','')} {a.get('proto','')} {a.get('label','')}".lower()
         ]
 
-        # Filter if search keyword entered
-        display_alerts = sample_alerts
-        if search_keyword:
-            kw = search_keyword.lower()
-            display_alerts = [
-                a for a in sample_alerts
-                if kw in f"{a.get('src_ip','')} {a.get('dst_ip','')} {a.get('proto','')} {a.get('label','')}".lower()
-            ]
+    # Desktop Table HTML
+    rows_html = ""
+    # Mobile Cards HTML
+    mobile_cards_html = ""
 
-        # Desktop Table HTML
-        rows_html = ""
-        # Mobile Cards HTML
-        mobile_cards_html = ""
+    for a in reversed(display_alerts[-25:]):
+        lbl = a.get("label", "benign")
+        cls_text = CLASS_LABELS.get(lbl, lbl.capitalize())
+        ts = str(a.get("timestamp", ""))[:19].replace("T", " ")
+        src = f"{a.get('src_ip', '0.0.0.0')}:{a.get('src_port', '')}"
+        dst = f"{a.get('dst_ip', '0.0.0.0')}:{a.get('dst_port', '')}"
+        conf = a.get("confidence", 100.0)
+        proto = str(a.get("proto", "TCP")).upper()
 
-        for a in reversed(display_alerts[-25:]):
-            lbl = a.get("label", "benign")
-            cls_text = CLASS_LABELS.get(lbl, lbl.capitalize())
-            ts = str(a.get("timestamp", ""))[:19].replace("T", " ")
-            src = f"{a.get('src_ip', '0.0.0.0')}:{a.get('src_port', '')}"
-            dst = f"{a.get('dst_ip', '0.0.0.0')}:{a.get('dst_port', '')}"
-            conf = a.get("confidence", 100.0)
-            proto = str(a.get("proto", "TCP")).upper()
+        chip_class = f"chip-{lbl}"
 
-            chip_class = f"chip-{lbl}"
-
-            # Desktop Table Row
-            rows_html += f"""<tr>
+        # Desktop Table Row
+        rows_html += f"""<tr>
 <td class="mono-cell" style="color:#667085;">{ts[11:19]}</td>
 <td class="src-cell">{src}</td>
 <td class="dst-cell">{dst}</td>
@@ -563,121 +618,53 @@ if selected_nav == "Overview":
 <td style="color:#98A2B3;font-weight:700;letter-spacing:1px;cursor:pointer;">•••</td>
 </tr>"""
 
-            # Mobile Incident Card (Rendered on phones <= 768px)
-            mobile_cards_html += f"""<div class="mobile-flow-card">
+        # Mobile Incident Card (Rendered on phones <= 768px)
+        mobile_cards_html += f"""<div class="mobile-flow-card">
 <div class="flow-card-header">
-    <span class="flow-card-time">{ts[11:19]}</span>
-    <span class="chip {chip_class}">● {cls_text}</span>
+<span class="flow-card-time">{ts[11:19]}</span>
+<span class="chip {chip_class}">● {cls_text}</span>
 </div>
 <div class="flow-card-row">
-    <span class="flow-label">Source</span>
-    <span class="src-cell">{src}</span>
+<span class="flow-label">Source</span>
+<span class="src-cell">{src}</span>
 </div>
 <div class="flow-card-row">
-    <span class="flow-label">Dest</span>
-    <span class="dst-cell">{dst}</span>
+<span class="flow-label">Dest</span>
+<span class="dst-cell">{dst}</span>
 </div>
 <div class="flow-card-footer">
-    <span>Protocol: <b style="color:#101828;">{proto}</b></span>
-    <span>Confidence: <b style="color:#101828;">{conf}%</b></span>
+<span>Protocol: <b style="color:#101828;">{proto}</b></span>
+<span>Confidence: <b style="color:#101828;">{conf}%</b></span>
 </div>
 </div>"""
 
-        recent_activity_container_html = dedent(f"""
-        <!-- Desktop Table View -->
-        <div class="desktop-table-wrapper table-card-wrapper">
-            <table class="saas-table">
-                <thead>
-                    <tr>
-                        <th>Time</th>
-                        <th>Source</th>
-                        <th>Destination</th>
-                        <th>Protocol</th>
-                        <th>Classification</th>
-                        <th>Confidence</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {rows_html}
-                </tbody>
-            </table>
-        </div>
+    recent_activity_container_html = dedent(f"""
+    <!-- Desktop Table View -->
+    <div class="desktop-table-wrapper table-card-wrapper">
+        <table class="saas-table">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Source</th>
+                    <th>Destination</th>
+                    <th>Protocol</th>
+                    <th>Classification</th>
+                    <th>Confidence</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {rows_html}
+            </tbody>
+        </table>
+    </div>
 
-        <!-- Mobile List View (Phone-Friendly) -->
-        <div class="mobile-cards-list">
-            {mobile_cards_html}
-        </div>
-        """).strip()
-        st.html(recent_activity_container_html)
-
-    with br_col2:
-        st.html(f"""
-        <div class="saas-card" style="margin-bottom:0.5rem;">
-            {render_section_header("System Status", "Real-time detector and sync health")}
-        </div>
-        """)
-
-        det_dot = PALETTE["success_green"] if detector_online else (PALETTE["warning_amber"] if detector_stale else "#98A2B3")
-        det_text = "Online" if detector_online else ("Stale" if detector_stale else "Offline")
-        fb_dot = PALETTE["success_green"] if fb_connected else PALETTE["warning_amber"]
-        fb_text = "Connected" if fb_connected else "Local cache"
-
-        system_status_mockup_html = dedent(f"""
-        <div class="saas-card" style="font-size:0.875rem;line-height:2.3;">
-            <div class="status-row">
-                <span style="display:flex;align-items:center;gap:0.5rem;color:#475467;">
-                    <span>💻</span> Detector
-                </span>
-                <span class="status-row-val" style="color:{det_dot};font-weight:600;">
-                    <span class="dot" style="background:{det_dot};"></span>
-                    {det_text}
-                </span>
-            </div>
-            <div class="status-row">
-                <span style="display:flex;align-items:center;gap:0.5rem;color:#475467;">
-                    <span>🔄</span> Mode
-                </span>
-                <span class="status-row-val" style="color:#D92D20;font-weight:600;">
-                    {active_mode.capitalize()}
-                </span>
-            </div>
-            <div class="status-row">
-                <span style="display:flex;align-items:center;gap:0.5rem;color:#475467;">
-                    <span>☁️</span> Firebase
-                </span>
-                <span class="status-row-val" style="color:{fb_dot};font-weight:600;">
-                    <span class="dot" style="background:{fb_dot};"></span>
-                    {fb_text}
-                </span>
-            </div>
-            <div class="status-row">
-                <span style="display:flex;align-items:center;gap:0.5rem;color:#475467;">
-                    <span>🕒</span> Last activity
-                </span>
-                <span class="status-row-val" style="color:#101828;">{last_packet_ago}</span>
-            </div>
-            <div class="status-row">
-                <span style="display:flex;align-items:center;gap:0.5rem;color:#475467;">
-                    <span>⚙️</span> Detection model
-                </span>
-                <span class="status-row-val" style="color:#101828;font-weight:600;">RF + XGBoost ({engine_status})</span>
-            </div>
-            <div class="status-row">
-                <span style="display:flex;align-items:center;gap:0.5rem;color:#475467;">
-                    <span>📶</span> Interface
-                </span>
-                <span class="status-row-val" style="color:#101828;font-weight:600;">{interface_name}</span>
-            </div>
-            <div class="status-row">
-                <span style="display:flex;align-items:center;gap:0.5rem;color:#475467;">
-                    <span>🏷</span> Sensor ID
-                </span>
-                <span class="status-row-val" style="color:#475467;font-family:'JetBrains Mono',monospace;">{sensor_id}</span>
-            </div>
-        </div>
-        """).strip()
-        st.html(system_status_mockup_html)
+    <!-- Mobile List View (Phone-Friendly) -->
+    <div class="mobile-cards-list">
+        {mobile_cards_html}
+    </div>
+    """).strip()
+    st.html(recent_activity_container_html)
 
 # ═════════════════════════════════════════════════════════════
 # PAGE: ANALYTICS

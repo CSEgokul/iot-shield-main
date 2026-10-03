@@ -617,6 +617,28 @@ def inject_global_styles():
         color: #475467;
     }
 
+    /* ── System Status Card Grid on Top ── */
+    .system-status-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.85rem 1.5rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid #F2F4F7;
+    }
+    @media (max-width: 1024px) {
+        .system-status-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem 1rem;
+        }
+    }
+    @media (max-width: 600px) {
+        .system-status-grid {
+            grid-template-columns: 1fr;
+            gap: 0.35rem;
+            line-height: 2.3;
+        }
+    }
+
     /* ── Real Status Banner (Desktop + Mobile) ── */
     .desktop-only-banner {
         background: #FFFFFF;
