@@ -990,7 +990,7 @@ elif selected_nav == "AI Assistant":
         else:
             st.info(
                 "Assistant in standby mode. To enable live inference on Streamlit Cloud, "
-                "add `GEMINI_API_KEY` or `GROQ_API_KEY` to your Streamlit Cloud Secrets."
+                "add `GROQ_API_KEY` or `GEMINI_API_KEY` to your Streamlit Cloud Secrets."
             )
 
 # ═════════════════════════════════════════════════════════════

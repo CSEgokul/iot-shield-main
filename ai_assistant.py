@@ -22,10 +22,10 @@ def _get_secret(key):
 
 def get_available_provider():
     """Detect available LLM provider based on configured secrets/env."""
-    if _get_secret("GEMINI_API_KEY") or _get_secret("GOOGLE_API_KEY"):
-        return "gemini"
     if _get_secret("GROQ_API_KEY"):
         return "groq"
+    if _get_secret("GEMINI_API_KEY") or _get_secret("GOOGLE_API_KEY"):
+        return "gemini"
     if _get_secret("OPENAI_API_KEY"):
         return "openai"
     # Check if local Ollama is reachable
@@ -46,34 +46,7 @@ def ask_ai(prompt, system_instruction="You are an expert IoT network security an
     If no provider is configured or reachable, returns (None, explanation_message)."""
     provider = get_available_provider()
 
-    # 1. Gemini
-    gemini_key = _get_secret("GEMINI_API_KEY") or _get_secret("GOOGLE_API_KEY")
-    if gemini_key:
-        try:
-            # Try gemini-1.5-flash
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
-            payload = {
-                "contents": [{"parts": [{"text": f"{system_instruction}\n\n{prompt}"}]}],
-                "generationConfig": {"temperature": 0.2, "maxOutputTokens": 300}
-            }
-            resp = requests.post(url, json=payload, timeout=20)
-            if resp.status_code == 200:
-                data = resp.json()
-                text = data["candidates"][0]["content"]["parts"][0]["text"]
-                return text.strip(), "Gemini 1.5 Flash"
-            else:
-                # If gemini-1.5-flash returned error, try gemini-2.0-flash
-                url2 = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}"
-                resp2 = requests.post(url2, json=payload, timeout=20)
-                if resp2.status_code == 200:
-                    data = resp2.json()
-                    text = data["candidates"][0]["content"]["parts"][0]["text"]
-                    return text.strip(), "Gemini 2.0 Flash"
-                return f"[Gemini API HTTP {resp.status_code}] {resp.text[:200]}", "Gemini"
-        except Exception as e:
-            return f"[Gemini connection error: {e}]", "Gemini"
-
-    # 2. Groq
+    # 1. Groq (Primary — user's deployed key)
     groq_key = _get_secret("GROQ_API_KEY")
     if groq_key:
         try:
@@ -99,6 +72,31 @@ def ask_ai(prompt, system_instruction="You are an expert IoT network security an
             return f"[Groq API HTTP {resp.status_code}] {resp.text[:200]}", "Groq"
         except Exception as e:
             return f"[Groq connection error: {e}]", "Groq"
+
+    # 2. Gemini (fallback)
+    gemini_key = _get_secret("GEMINI_API_KEY") or _get_secret("GOOGLE_API_KEY")
+    if gemini_key:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
+            payload = {
+                "contents": [{"parts": [{"text": f"{system_instruction}\n\n{prompt}"}]}],
+                "generationConfig": {"temperature": 0.2, "maxOutputTokens": 300}
+            }
+            resp = requests.post(url, json=payload, timeout=20)
+            if resp.status_code == 200:
+                data = resp.json()
+                text = data["candidates"][0]["content"]["parts"][0]["text"]
+                return text.strip(), "Gemini 1.5 Flash"
+            else:
+                url2 = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}"
+                resp2 = requests.post(url2, json=payload, timeout=20)
+                if resp2.status_code == 200:
+                    data = resp2.json()
+                    text = data["candidates"][0]["content"]["parts"][0]["text"]
+                    return text.strip(), "Gemini 2.0 Flash"
+                return f"[Gemini API HTTP {resp.status_code}] {resp.text[:200]}", "Gemini"
+        except Exception as e:
+            return f"[Gemini connection error: {e}]", "Gemini"
 
     # 3. OpenAI
     openai_key = _get_secret("OPENAI_API_KEY")
