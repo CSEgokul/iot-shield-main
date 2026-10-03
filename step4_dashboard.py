@@ -234,35 +234,11 @@ with st.sidebar:
         model_name=f"RF + XGBoost ({engine_status})"
     )
 
-# ─────────────────────────────────────────────────────────────
-# TOP HEADER ROW (Matches Mockup)
-# ─────────────────────────────────────────────────────────────
-th_col1, th_col2, th_col3 = st.columns([3, 1.4, 0.6])
-
-with th_col1:
-    search_keyword = st.text_input(
-        "Search",
-        placeholder="🔍 Search by IP, device, event, or keyword...",
-        label_visibility="collapsed",
-        key="top_search_input"
-    )
-with th_col2:
-    current_month_str = datetime.now().strftime("%b 1, %Y – %b %d, %Y")
-    st.markdown(
-        f'<div style="background:#FFFFFF;border:1px solid #EAECF0;border-radius:8px;padding:0.55rem 0.85rem;'
-        f'font-size:0.8125rem;color:#344054;display:flex;align-items:center;justify-content:space-between;min-height:42px;">'
-        f'<span>📅 {current_month_str}</span><span style="color:#98A2B3;">▾</span></div>',
-        unsafe_allow_html=True
-    )
-with th_col3:
-    if st.button("Refresh", key="btn_top_refresh"):
-        st.rerun()
-
 # ═════════════════════════════════════════════════════════════
 # PAGE: OVERVIEW
 # ═════════════════════════════════════════════════════════════
 if selected_nav == "Overview":
-    # Overview Title & Solid Red Export Report Button
+    # Overview Title & Solid Red Export Report Button (DISPLAYED FIRST)
     oh_col1, oh_col2 = st.columns([3, 1])
     with oh_col1:
         st.html("""
@@ -279,6 +255,30 @@ if selected_nav == "Overview":
             mime="text/csv",
             key="btn_export_report"
         )
+
+    # ─────────────────────────────────────────────────────────
+    # TOP HEADER ROW (Search, Date, Refresh — below title)
+    # ─────────────────────────────────────────────────────────
+    th_col1, th_col2, th_col3 = st.columns([3, 1.4, 0.6])
+
+    with th_col1:
+        search_keyword = st.text_input(
+            "Search",
+            placeholder="🔍 Search by IP, device, event, or keyword...",
+            label_visibility="collapsed",
+            key="top_search_input"
+        )
+    with th_col2:
+        current_month_str = datetime.now().strftime("%b 1, %Y – %b %d, %Y")
+        st.markdown(
+            f'<div style="background:#FFFFFF;border:1px solid #EAECF0;border-radius:8px;padding:0.55rem 0.85rem;'
+            f'font-size:0.8125rem;color:#344054;display:flex;align-items:center;justify-content:space-between;min-height:42px;">'
+            f'<span>📅 {current_month_str}</span><span style="color:#98A2B3;">▾</span></div>',
+            unsafe_allow_html=True
+        )
+    with th_col3:
+        if st.button("Refresh", key="btn_top_refresh"):
+            st.rerun()
 
     # ── SYSTEM STATUS CARD DISPLAYED ON TOP ──────────────────────
     det_dot = PALETTE["success_green"] if detector_online else (PALETTE["warning_amber"] if detector_stale else "#98A2B3")
