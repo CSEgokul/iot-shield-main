@@ -50,8 +50,8 @@ def ask_ai(prompt, system_instruction="You are an expert IoT network security an
         # 1. Groq (Primary — user's deployed key)
     groq_key = _get_secret("GROQ_API_KEY")
     if groq_key:
-        groq_models = [
-            ("llama-3.1-8b-instant", "Groq (Llama 3.1 8B)"),
+                groq_models = [
+            ("openai/gpt-oss-120b", "Groq (GPT-OSS 120B)"),
         ]
         url = "https://api.groq.com/openai/v1/chat/completions"
         headers = {
@@ -68,7 +68,8 @@ def ask_ai(prompt, system_instruction="You are an expert IoT network security an
                         {"role": "user", "content": prompt}
                     ],
                     "temperature": 0.2,
-                    "max_tokens": 300
+                                        "max_completion_tokens": 2048,
+                    "reasoning_effort": "low"
                 }
                 resp = requests.post(url, headers=headers, json=payload, timeout=20)
                 if resp.status_code == 200:
