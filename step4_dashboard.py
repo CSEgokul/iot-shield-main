@@ -982,8 +982,7 @@ elif selected_nav == "AI Assistant":
             summary = df_ctx["label"].value_counts().to_dict()
             top_src = df_ctx["src_ip"].value_counts().head(3).to_dict() if "src_ip" in df_ctx.columns else {}
             context = f"Alert summary (last 25 flows): {summary}. Top source IPs: {top_src}. "
-
-                prompt = (
+        prompt = (
             "You are an expert IoT security analyst. "
             "Answer the user's question directly in 2–3 sentences. "
             "For general questions, explain the concept without mentioning "
