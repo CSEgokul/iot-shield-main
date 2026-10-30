@@ -960,18 +960,29 @@ elif selected_nav == "AI Assistant":
         "Review suspicious activity",
         "Recommend next steps"
     ]
-    active_prompt = None
-    for i, s in enumerate(suggested_prompts):
+        def set_suggested_prompt(text):
+        st.session_state["ai_analyst_input"] = text
+        st.session_state["ai_prompt"] = text
+
+    for i, suggested in enumerate(suggested_prompts):
         target_col = p_col1 if i % 2 == 0 else p_col2
         with target_col:
-            if st.button(s, key=f"sug_prompt_btn_{i}"):
-                active_prompt = s
+            st.button(
+                suggested,
+                key=f"sug_prompt_btn_{i}",
+                on_click=set_suggested_prompt,
+                args=(suggested,),
+            )
+
+    if "ai_analyst_input" not in st.session_state:
+        st.session_state["ai_analyst_input"] = (
+            st.session_state.get("ai_prompt", "")
+        )
 
     user_query = st.text_input(
         "Analyst query",
-        value=active_prompt or st.session_state.ai_prompt,
-        placeholder="Ask a question about current threats or model reasoning...",
-        key="ai_analyst_input"
+        placeholder="Ask a question about current threats...",
+        key="ai_analyst_input",
     )
 
     if user_query:
