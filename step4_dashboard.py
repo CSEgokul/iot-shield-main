@@ -960,7 +960,7 @@ elif selected_nav == "AI Assistant":
         "Review suspicious activity",
         "Recommend next steps"
     ]
-        def set_suggested_prompt(text):
+    def set_suggested_prompt(text):
         st.session_state["ai_analyst_input"] = text
         st.session_state["ai_prompt"] = text
 
