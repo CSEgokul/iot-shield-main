@@ -983,9 +983,16 @@ elif selected_nav == "AI Assistant":
             top_src = df_ctx["src_ip"].value_counts().head(3).to_dict() if "src_ip" in df_ctx.columns else {}
             context = f"Alert summary (last 25 flows): {summary}. Top source IPs: {top_src}. "
 
-        prompt = (
-            f"You are an expert IoT security analyst. {context}"
-            f"Provide a concise, direct analysis in 2-3 sentences: {user_query}"
+                prompt = (
+            "You are an expert IoT security analyst. "
+            "Answer the user's question directly in 2–3 sentences. "
+            "For general questions, explain the concept without mentioning "
+            "the current traffic summary. "
+            "Use the supplied records only when the question concerns "
+            "this dashboard's traffic or alerts. "
+            "Describe benign labels as model predictions, not proof of safety. "
+            f"\nTraffic context: {context or 'No records available.'}"
+            f"\nUser question: {user_query}"
         )
 
         with st.spinner("Analyzing telemetry with Security Assistant..."):
