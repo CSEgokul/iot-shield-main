@@ -48,9 +48,9 @@ def ask_ai(prompt, system_instruction="You are an expert IoT network security an
     provider = get_available_provider()
 
     # 1. Groq (Primary — user's deployed key)
-    groq_key = _get_secret("GROQ_API_KEY")
+       groq_key = _get_secret("GROQ_API_KEY")
     if groq_key:
-               groq_models = [
+        groq_models = [
             ("llama-3.1-8b-instant", "Groq (Llama 3.1 8B)"),
         ]
         url = "https://api.groq.com/openai/v1/chat/completions"
