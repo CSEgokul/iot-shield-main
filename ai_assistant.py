@@ -68,7 +68,7 @@ def ask_ai(prompt, system_instruction="You are an expert IoT network security an
                         {"role": "user", "content": prompt}
                     ],
                     "temperature": 0.2,
-                                        "max_completion_tokens": 2048,
+                    "max_completion_tokens": 2048,
                     "reasoning_effort": "low"
                 }
                 resp = requests.post(url, headers=headers, json=payload, timeout=20)
