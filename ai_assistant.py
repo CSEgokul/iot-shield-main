@@ -47,8 +47,8 @@ def ask_ai(prompt, system_instruction="You are an expert IoT network security an
     If no provider is configured or reachable, returns (None, explanation_message)."""
     provider = get_available_provider()
 
-    # 1. Groq (Primary — user's deployed key)
-       groq_key = _get_secret("GROQ_API_KEY")
+        # 1. Groq (Primary — user's deployed key)
+    groq_key = _get_secret("GROQ_API_KEY")
     if groq_key:
         groq_models = [
             ("llama-3.1-8b-instant", "Groq (Llama 3.1 8B)"),
