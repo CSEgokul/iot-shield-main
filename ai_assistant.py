@@ -45,12 +45,12 @@ def ask_ai(prompt, system_instruction="You are an expert IoT network security an
     """Send prompt to the best available LLM provider.
     Returns (response_text, provider_label).
     If no provider is configured or reachable, returns (None, explanation_message)."""
-    provider = get_available_provider()
+        provider = get_available_provider()
 
-        # 1. Groq (Primary — user's deployed key)
+    # 1. Groq
     groq_key = _get_secret("GROQ_API_KEY")
     if groq_key:
-                groq_models = [
+        groq_models = [
             ("openai/gpt-oss-120b", "Groq (GPT-OSS 120B)"),
         ]
         url = "https://api.groq.com/openai/v1/chat/completions"
