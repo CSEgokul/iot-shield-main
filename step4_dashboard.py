@@ -631,7 +631,19 @@ if selected_nav == "Overview":
 <td class="mono-cell" style="color:#667085;">{proto}</td>
 <td><span class="chip {chip_class}">● {cls_text}</span></td>
 <td class="mono-cell" style="color:#667085;">{conf}%</td>
-<td style="color:#98A2B3;font-weight:700;letter-spacing:1px;cursor:pointer;">•••</td>
+<td>
+    <details>
+        <summary style="cursor:pointer;color:#667085;">•••</summary>
+        <div style="padding:10px;min-width:180px;font-size:13px;">
+            <strong>Flow details</strong><br>
+            Source: {src}<br>
+            Destination: {dst}<br>
+            Protocol: {proto}<br>
+            Classification: {cls_text}<br>
+            Confidence: {conf}%
+        </div>
+    </details>
+</td>
 </tr>"""
 
         # Mobile Incident Card (Rendered on phones <= 768px)
